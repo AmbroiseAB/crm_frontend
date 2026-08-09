@@ -33,7 +33,7 @@ export function Sidebar({ onNavigate }) {
         <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
           <Sparkles className="h-5 w-5" />
         </div>
-        <span className="font-display text-lg font-bold text-ink">TTP CRM</span>
+        <span className="font-display text-lg font-bold text-ink">INFONOVA CRM</span>
       </div>
 
       {/* Nav links */}
@@ -48,7 +48,7 @@ export function Sidebar({ onNavigate }) {
               cn(
                 "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition",
                 isActive
-                  ? "bg-brand-50 text-brand-700"
+                  ? "bg-brand-50 text-brand-700 ring-1 ring-brand-200"
                   : "text-ink-soft hover:bg-surface-muted hover:text-ink"
               )
             }
