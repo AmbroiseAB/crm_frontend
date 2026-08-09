@@ -137,18 +137,24 @@ export default function Dashboard() {
         <div className="space-y-5 lg:col-span-6">
           <Card className="p-6">
             <SectionHeading
+              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               icon={CreditCard}
               title="Pipeline Engagement"
               subtitle="New leads per month"
               action={
-                <Tabs
-                  value={range}
-                  onChange={setRange}
-                  tabs={[
-                    { value: "monthly", label: "Monthly" },
-                    { value: "annually", label: "Annually" },
-                  ]}
-                />
+                <div className="self-start max-w-full overflow-x-auto sm:overflow-visible">
+                  <div className="inline-flex shrink-0">
+                    <Tabs
+                      value={range}
+                      onChange={setRange}
+                      className="shrink-0"
+                      tabs={[
+                        { value: "monthly", label: "Monthly" },
+                        { value: "annually", label: "Annually" },
+                      ]}
+                    />
+                  </div>
+                </div>
               }
             />
             <div className="mt-4">
