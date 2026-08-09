@@ -8,7 +8,9 @@ export function currency(value = 0, { compact = false } = {}) {
     currency: "XAF",
     notation: compact ? "compact" : "standard",
     maximumFractionDigits: compact ? 1 : 0,
-  }).format(n);
+  })
+    .format(n)
+    .replace(/\s*XAF/, " FCFA");
 }
 
 /** Short, human date: "16 Jun 2025". */

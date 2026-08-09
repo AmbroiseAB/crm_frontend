@@ -969,7 +969,7 @@ function ContactFormDialog({ open, contact, onClose, onSaved }) {
             <Input
               {...register("phone")}
               type="tel"
-              placeholder="+1 555 000 0000"
+              placeholder="+237 655000000"
             />
           </Field>
         </div>

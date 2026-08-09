@@ -481,7 +481,7 @@ function BalanceChart({ trend }) {
             <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <Tooltip content={<ChartTooltip prefix="$" />} />
+        <Tooltip content={<ChartTooltip unit=" FCFA" />} />
         <Area type="monotone" dataKey="won" stroke="#0284c7" strokeWidth={2.5} fill="url(#balance)" />
       </AreaChart>
     </ResponsiveContainer>
