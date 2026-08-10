@@ -49,6 +49,141 @@ import { cn } from "../lib/utils";
 /* Donut palette — sky-blue family used for the "Leads by Source" chart. */
 const SOURCE_COLORS = ["#0ea5e9", "#38bdf8", "#0369a1", "#7dd3fc", "#0284c7", "#bae6fd"];
 
+const PIPELINE_STAGES = ["New", "Qualified", "Proposal", "Won", "Lost"];
+
+const lastSixPeriods = (range = "monthly") => {
+  const now = new Date();
+  if (range === "annually") {
+    const out = [];
+    for (let i = 5; i >= 0; i--) {
+      const y = now.getFullYear() - i;
+      out.push({ key: `${y}`, label: String(y) });
+    }
+    return out;
+  }
+
+  const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const out = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: labels[d.getMonth()] });
+  }
+  return out;
+};
+
+const deriveDashboardData = (leads, contacts, tasks, range = "monthly") => {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - 7);
+  const prevWeekStart = new Date(now);
+  prevWeekStart.setDate(now.getDate() - 14);
+  const periods = lastSixPeriods(range);
+  const trend = periods.map(({ key, label }) => ({ month: label, leads: 0, won: 0 }));
+  const indexByKey = Object.fromEntries(periods.map((m, i) => [m.key, i]));
+
+  let totalValue = 0;
+  let revenueWon = 0;
+  let weeklyRevenue = 0;
+  let previousWeeklyRevenue = 0;
+  let wonCount = 0;
+  let lostCount = 0;
+
+  for (const lead of leads) {
+    const value = Number(lead.value) || 0;
+    totalValue += value;
+    const createdAt = new Date(lead.createdAt || lead.updatedAt || now);
+    const key = range === "annually" ? `${createdAt.getFullYear()}` : `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
+    const idx = indexByKey[key];
+    if (idx !== undefined) {
+      trend[idx].leads += 1;
+      if (lead.status === "Won") trend[idx].won += value;
+    }
+
+    if (lead.status === "Won") {
+      revenueWon += value;
+      wonCount += 1;
+      if (createdAt >= weekStart) weeklyRevenue += value;
+      if (createdAt >= prevWeekStart && createdAt < weekStart) previousWeeklyRevenue += value;
+    }
+    if (lead.status === "Lost") {
+      lostCount += 1;
+    }
+  }
+
+  const closedCount = wonCount + lostCount;
+  const conversionRate = closedCount ? Math.round((wonCount / closedCount) * 100) : 0;
+    const weeklyRevenueChange = previousWeeklyRevenue
+      ? Math.round(((weeklyRevenue - previousWeeklyRevenue) / previousWeeklyRevenue) * 100)
+      : weeklyRevenue > 0
+      ? null
+      : 0;
+  // Compute conversion change comparing this period to previous period (monthly or yearly)
+  // We'll compare closed/won counts for the current and previous period spans.
+  const monthsOrYears = periods.map((p) => p.key);
+  const lastKey = monthsOrYears[monthsOrYears.length - 1];
+  const prevKey = monthsOrYears[monthsOrYears.length - 2];
+  let lastClosed = 0,
+    lastWon = 0,
+    prevClosed = 0,
+    prevWon = 0;
+  for (const lead of leads) {
+    const status = lead.status;
+    const d = new Date(lead.updatedAt || lead.createdAt || now);
+    const k = range === "annually" ? `${d.getFullYear()}` : `${d.getFullYear()}-${d.getMonth()}`;
+    const isClosed = status === "Won" || status === "Lost";
+    if (k === lastKey && isClosed) {
+      lastClosed += 1;
+      if (status === "Won") lastWon += 1;
+    }
+    if (k === prevKey && isClosed) {
+      prevClosed += 1;
+      if (status === "Won") prevWon += 1;
+    }
+  }
+
+  const currentConv = lastClosed ? Math.round((lastWon / lastClosed) * 100) : 0;
+  const prevConv = prevClosed ? Math.round((prevWon / prevClosed) * 100) : null;
+  const conversionChange = prevConv !== null ? currentConv - prevConv : lastClosed ? null : 0;
+
+  const pipeline = PIPELINE_STAGES.map((stage) => {
+    const items = leads.filter((lead) => lead.status === stage);
+    return {
+      stage,
+      count: items.length,
+      value: items.reduce((sum, lead) => sum + (Number(lead.value) || 0), 0),
+    };
+  });
+
+  const recentLeads = [...leads]
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+    .slice(0, 3)
+    .map((l) => ({
+      id: l._id,
+      name: l.name,
+      company: l.company,
+      status: l.status,
+      value: l.value,
+      updatedAt: l.updatedAt,
+    }));
+
+  return {
+    stats: {
+      revenueWon,
+      weeklyRevenue,
+      weeklyRevenueChange,
+      pipelineValue: totalValue,
+      totalLeads: leads.length,
+      totalContacts: contacts.length,
+      openTasks: tasks.filter((task) => task.status !== "Completed").length,
+      conversionRate,
+      conversionChange,
+    },
+    pipeline,
+    trend,
+    recentLeads,
+  };
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -65,7 +200,18 @@ export default function Dashboard() {
   }, []);
 
   if (data === null) return <DashboardSkeleton />;
-  const stats = data?.stats || {};
+  const derivedData = deriveDashboardData(leads, contacts, tasks, range);
+  const useDerived =
+    data === false ||
+    (data?.stats && data.stats.pipelineValue === 0 && leads.some((lead) => Number(lead.value) > 0));
+  const dashboardData = useDerived
+    ? derivedData
+    : data || { stats: {}, pipeline: [], trend: [], recentLeads: [] };
+  const stats = dashboardData.stats || {};
+
+  // For annual view, prefer freshly-derived annual aggregates for charts so
+  // the engagement visualization shows years instead of months.
+  const chartSource = range === "annually" ? derivedData : dashboardData;
 
   // A friendly trailing date-range label for the header pill.
   const today = new Date();
@@ -104,10 +250,13 @@ export default function Dashboard() {
             <p className="text-sm text-ink-soft">Weekly Revenue</p>
             <div className="mt-2 flex items-end justify-between gap-2">
               <p className="font-display text-2xl font-bold text-ink">
-                {currency(stats.revenueWon, { compact: true })}
+                {currency(stats.weeklyRevenue ?? 0, { compact: true })}
               </p>
               <Badge className="bg-brand-50 text-brand-700">
-                <ArrowUpRight className="h-3 w-3" /> 12.8%
+                <ArrowUpRight className="h-3 w-3" />
+                {stats.weeklyRevenueChange !== null && stats.weeklyRevenueChange !== undefined
+                  ? `${stats.weeklyRevenueChange}%`
+                  : "—"}
               </Badge>
             </div>
           </Card>
@@ -121,7 +270,10 @@ export default function Dashboard() {
                 <span className="text-xl text-ink-soft">%</span>
               </p>
               <Badge className="mb-1 bg-brand-50 text-brand-700">
-                <ArrowUpRight className="h-3 w-3" /> 4.1%
+                <ArrowUpRight className="h-3 w-3" />
+                {stats.conversionChange !== null && stats.conversionChange !== undefined
+                  ? `${stats.conversionChange}%`
+                  : "—"}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-ink-soft">
@@ -140,7 +292,7 @@ export default function Dashboard() {
               className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               icon={CreditCard}
               title="Pipeline Engagement"
-              subtitle="New leads per month"
+              subtitle={range === "annually" ? "New leads per year" : "New leads per month"}
               action={
                 <div className="self-start max-w-full overflow-x-auto sm:overflow-visible">
                   <div className="inline-flex shrink-0">
@@ -158,7 +310,7 @@ export default function Dashboard() {
               }
             />
             <div className="mt-4">
-              <EngagementChart trend={data?.trend || []} />
+              <EngagementChart trend={chartSource?.trend || []} />
             </div>
           </Card>
 
@@ -169,11 +321,11 @@ export default function Dashboard() {
               to="/leads"
             />
             <div className="mt-4">
-              <ActivityTable leads={data?.recentLeads || []} />
+              <ActivityTable leads={dashboardData?.recentLeads || []} />
             </div>
           </Card>
 
-          <PipelineByStage pipeline={data?.pipeline || []} />
+          <PipelineByStage pipeline={dashboardData?.pipeline || []} />
         </div>
 
         {/* ── Right column ──────────────────────────────── */}
@@ -185,7 +337,7 @@ export default function Dashboard() {
             <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
               {currency(stats.revenueWon)}
             </p>
-            <BalanceChart trend={data?.trend || []} />
+            <BalanceChart trend={chartSource?.trend || []} />
             <div className="mt-4 flex items-center gap-2">
               <Link
                 to="/leads"
@@ -547,7 +699,7 @@ function ActivityTable({ leads }) {
                   </span>
                 </td>
                 <td className="py-3.5 text-right font-semibold text-ink">
-                  {currency(l.value)}
+                  {currency(l.value, { compact: true })}
                 </td>
               </tr>
             );
