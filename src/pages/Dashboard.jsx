@@ -338,7 +338,7 @@ export default function Dashboard() {
             <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
             <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
             <p className={`text-center font-display ${revenueLarge ? "text-lg" : "text-2xl"} font-bold tracking-tight text-ink`}>
-              {currency(stats.revenueWon ?? 0, { compact: revenueLarge })}
+              {stats.revenueWon != null ? currency(stats.revenueWon, { compact: revenueLarge }) : "—"}
             </p>
             <BalanceChart trend={chartSource?.trend || []} />
             <div className="mt-4 flex items-center gap-2">
@@ -675,7 +675,7 @@ function ActivityTable({ leads }) {
           </tr>
         </thead>
         <tbody>
-          {leads.map((l) => {
+          {leads.slice(0, 3).map((l) => {
             const style = STAGE_STYLES[l.status] || STAGE_STYLES.New;
             return (
               <tr
@@ -702,7 +702,7 @@ function ActivityTable({ leads }) {
                   </span>
                 </td>
                 <td className="py-3.5 text-right font-semibold text-ink">
-                  {currency(l.value, { compact: true })}
+                  {l.value != null ? currency(l.value, { compact: true }) : "—"}
                 </td>
               </tr>
             );

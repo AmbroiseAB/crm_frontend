@@ -25,7 +25,7 @@ export function HeroCard({ value = 0, label = "Pipeline value" }) {
 
         <p className="relative mt-6 text-sm text-white/70">{label}</p>
         <p className={`relative mt-1 font-display ${isLargeValue ? "text-lg" : "text-2xl"} font-bold tracking-tight`}>
-          {currency(value ?? 0, { compact: isLargeValue })}
+          {value != null ? currency(value, { compact: isLargeValue }) : "—"}
         </p>
 
         <div className="relative mt-6 flex items-center justify-between text-sm">
