@@ -209,6 +209,9 @@ export default function Dashboard() {
     : data || { stats: {}, pipeline: [], trend: [], recentLeads: [] };
   const stats = dashboardData.stats || {};
 
+  const pipelineLarge = Number(stats.pipelineValue || 0) >= 100000000;
+  const revenueLarge = Number(stats.revenueWon || 0) >= 100000000;
+
   // For annual view, prefer freshly-derived annual aggregates for charts so
   // the engagement visualization shows years instead of months.
   const chartSource = range === "annually" ? derivedData : dashboardData;
@@ -334,8 +337,8 @@ export default function Dashboard() {
           <Card className="p-6">
             <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
             <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
-            <p className="text-center font-display text-3xl font-bold tracking-tight text-ink">
-              {currency(stats.revenueWon)}
+            <p className={`text-center font-display ${revenueLarge ? "text-xl" : "text-3xl"} font-bold tracking-tight text-ink`}>
+              {currency(stats.revenueWon, { compact: revenueLarge })}
             </p>
             <BalanceChart trend={chartSource?.trend || []} />
             <div className="mt-4 flex items-center gap-2">

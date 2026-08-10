@@ -7,6 +7,7 @@ import { currency } from "../../lib/format";
  * gradient card surfacing total Pipeline Value with account-style framing.
  */
 export function HeroCard({ value = 0, label = "Pipeline value" }) {
+  const isLargeValue = Number(value || 0) >= 100000000;
   return (
     <Card className="p-6">
       <SectionHeading title="Pipeline Goal" subtitle="Total deal value" to="/pipeline" />
@@ -23,8 +24,8 @@ export function HeroCard({ value = 0, label = "Pipeline value" }) {
         </div>
 
         <p className="relative mt-6 text-sm text-white/70">{label}</p>
-        <p className="relative mt-1 font-display text-3xl font-bold tracking-tight">
-          {currency(value)}
+        <p className={`relative mt-1 font-display ${isLargeValue ? "text-xl" : "text-3xl"} font-bold tracking-tight`}>
+          {currency(value, { compact: isLargeValue })}
         </p>
 
         <div className="relative mt-6 flex items-center justify-between text-sm">
