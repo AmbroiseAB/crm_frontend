@@ -337,8 +337,8 @@ export default function Dashboard() {
           <Card className="p-6">
             <SectionHeading title="Revenue Goal" subtitle="Closed-won total" to="/pipeline" />
             <p className="mt-4 text-center text-sm text-ink-soft">Total Won</p>
-            <p className={`text-center font-display ${revenueLarge ? "text-xl" : "text-3xl"} font-bold tracking-tight text-ink`}>
-              {currency(stats.revenueWon, { compact: revenueLarge })}
+            <p className={`text-center font-display ${revenueLarge ? "text-lg" : "text-2xl"} font-bold tracking-tight text-ink`}>
+              {currency(stats.revenueWon ?? 0, { compact: revenueLarge })}
             </p>
             <BalanceChart trend={chartSource?.trend || []} />
             <div className="mt-4 flex items-center gap-2">
