@@ -105,6 +105,33 @@ export default function Pipeline() {
     });
   };
 
+  const handleStageChange = (leadId, targetStage) => {
+    setBoard((prev) => {
+      const fromStage = PIPELINE_STAGES.find((stage) =>
+        prev[stage].some((l) => l._id === leadId)
+      );
+      if (!fromStage || fromStage === targetStage) return prev;
+
+      const lead = prev[fromStage].find((l) => l._id === leadId);
+      if (!lead) return prev;
+
+      const next = {
+        ...prev,
+        [fromStage]: prev[fromStage].filter((l) => l._id !== leadId),
+        [targetStage]: [...prev[targetStage], { ...lead, status: targetStage }],
+      };
+
+      const updates = [];
+      PIPELINE_STAGES.forEach((stage) => {
+        next[stage].forEach((l, order) =>
+          updates.push({ id: l._id, status: stage, order })
+        );
+      });
+      leadsApi.reorder(updates).catch(() => toast.error("Could not save pipeline"));
+      return next;
+    });
+  };
+
   /* ── KPI computations ─────────────────────────────────────────────── */
   const allLeads = Object.values(board).flat();
   const totalValue = allLeads.reduce((s, l) => s + (l.value || 0), 0);
@@ -159,7 +186,12 @@ export default function Pipeline() {
       >
         <div className="flex gap-4 overflow-x-auto pb-4">
           {PIPELINE_STAGES.map((stage) => (
-            <Column key={stage} stage={stage} leads={board[stage]} />
+            <Column
+              key={stage}
+              stage={stage}
+              leads={board[stage]}
+              onStageChange={handleStageChange}
+            />
           ))}
         </div>
 
@@ -189,7 +221,7 @@ function StatTile({ icon: Icon, label, value, tint }) {
 }
 
 /* ── Column ─────────────────────────────────────────────────────────── */
-function Column({ stage, leads }) {
+function Column({ stage, leads, onStageChange }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   const style = STAGE_STYLES[stage];
   const value = leads.reduce((s, l) => s + (l.value || 0), 0);
@@ -226,7 +258,7 @@ function Column({ stage, leads }) {
           strategy={verticalListSortingStrategy}
         >
           {leads.map((lead) => (
-            <SortableCard key={lead._id} lead={lead} />
+            <SortableCard key={lead._id} lead={lead} onStageChange={onStageChange} />
           ))}
         </SortableContext>
         {leads.length === 0 && (
@@ -238,7 +270,7 @@ function Column({ stage, leads }) {
 }
 
 /* ── Sortable card wrapper ──────────────────────────────────────────── */
-function SortableCard({ lead }) {
+function SortableCard({ lead, onStageChange }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: lead._id });
 
@@ -248,13 +280,13 @@ function SortableCard({ lead }) {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(isDragging && "opacity-40")}
     >
-      <LeadCard lead={lead} dragHandle={{ attributes, listeners }} />
+      <LeadCard lead={lead} dragHandle={{ attributes, listeners }} onStageChange={onStageChange} />
     </div>
   );
 }
 
 /* ── Card UI ────────────────────────────────────────────────────────── */
-function LeadCard({ lead, dragHandle, overlay }) {
+function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
   const [suggesting, setSuggesting] = useState(false);
 
   // AI: suggest the next best action / priority for this lead.
@@ -283,11 +315,13 @@ function LeadCard({ lead, dragHandle, overlay }) {
     >
       {/* Name / company row + drag handle */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Avatar name={lead.name} size="sm" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">{lead.name}</p>
-            <p className="flex items-center gap-1 truncate text-xs text-ink-soft">
+            <p className="truncate text-sm font-semibold text-ink max-w-[10rem] md:max-w-[12rem]">
+              {lead.name}
+            </p>
+            <p className="flex items-center gap-1 truncate text-xs text-ink-soft max-w-[10rem] md:max-w-[12rem]">
               <Building2 className="h-3 w-3 shrink-0" />
               {lead.company || "—"}
             </p>
@@ -297,7 +331,7 @@ function LeadCard({ lead, dragHandle, overlay }) {
           <button
             {...dragHandle.attributes}
             {...dragHandle.listeners}
-            className="cursor-grab text-ink-soft/50 transition hover:text-ink-soft active:cursor-grabbing"
+            className="hidden h-9 w-9 items-center justify-center rounded-full border border-line/60 bg-surface text-ink-soft/70 transition hover:bg-surface-hover hover:text-ink-soft active:cursor-grabbing lg:flex lg:ml-2"
             aria-label="Drag"
           >
             <GripVertical className="h-4 w-4" />
@@ -305,11 +339,28 @@ function LeadCard({ lead, dragHandle, overlay }) {
         )}
       </div>
 
-      {/* Value + priority */}
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-sm font-bold text-ink">{currency(lead.value)}</span>
-        <Badge className={PRIORITY_STYLES[lead.priority]}>{lead.priority}</Badge>
-      </div>
+      {!overlay && (
+        <div className="mt-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold text-ink">{currency(lead.value)}</span>
+            <Badge className={cn(PRIORITY_STYLES[lead.priority], "hidden lg:inline-flex")}>{lead.priority}</Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+            <Badge className={PRIORITY_STYLES[lead.priority]}>{lead.priority}</Badge>
+            <select
+              value={lead.status}
+              onChange={(e) => onStageChange?.(lead._id, e.target.value)}
+              className="w-auto min-w-[7rem] max-w-[10rem] rounded-xl border border-line/70 bg-surface px-3 py-1.5 text-xs text-ink-soft shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+            >
+              {PIPELINE_STAGES.map((stage) => (
+                <option key={stage} value={stage}>
+                  {stage}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* AI suggest button — appears on hover, hidden in DragOverlay */}
       {!overlay && (
