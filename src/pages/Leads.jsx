@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -46,8 +47,14 @@ import { cn } from "../lib/utils";
 import { toast } from "sonner";
 
 export default function Leads() {
+  const [searchParams] = useSearchParams();
   const [leads, setLeads] = useState(null);
-  const [filters, setFilters] = useState({ status: "", priority: "", source: "", search: "" });
+  const [filters, setFilters] = useState(() => ({
+    status: "",
+    priority: "",
+    source: "",
+    search: searchParams.get("search") || "",
+  }));
   const [sort, setSort] = useState({ key: "updatedAt", dir: "desc" });
   const [selected, setSelected] = useState(() => new Set());
   const [view, setView] = useState("table"); // "table" | "grid"

@@ -23,6 +23,7 @@ import { currency } from "../lib/format";
 import { PIPELINE_STAGES, STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
 import { cn } from "../lib/utils";
 import { toast } from "sonner";
+import { useNotifications } from "../context/NotificationContext";
 
 /* Group a flat lead list into { stage: Lead[] } buckets. */
 const toBoard = (leads) => {
@@ -288,6 +289,7 @@ function SortableCard({ lead, onStageChange }) {
 /* ── Card UI ────────────────────────────────────────────────────────── */
 function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
   const [suggesting, setSuggesting] = useState(false);
+  const { addNotification } = useNotifications();
 
   // AI: suggest the next best action / priority for this lead.
   const suggest = async (e) => {
@@ -295,6 +297,11 @@ function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
     setSuggesting(true);
     try {
       const res = await aiApi.leadSummary({ leadId: lead._id });
+      addNotification({
+        title: `AI response for ${lead.name}`,
+        message: res.summary,
+        details: `${res.nextBestAction} (suggested priority: ${res.suggestedPriority})`,
+      });
       toast(`AI suggestion for ${lead.name}`, {
         description: `${res.nextBestAction} (suggested priority: ${res.suggestedPriority})`,
         duration: 7000,
@@ -367,10 +374,12 @@ function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
         <button
           onClick={suggest}
           disabled={suggesting}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-50 py-1.5 text-xs font-medium text-brand-700 opacity-0 transition group-hover:opacity-100 hover:bg-brand-100 disabled:opacity-60"
+          title="AI suggest next step"
+          aria-label="AI suggest next step"
+          className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-brand-50 py-1.5 text-xs font-medium text-brand-700 opacity-100 transition hover:bg-brand-100 lg:opacity-0 lg:group-hover:opacity-100 disabled:opacity-60"
         >
           <Sparkles className={cn("h-3.5 w-3.5", suggesting && "animate-pulse")} />
-          {suggesting ? "Thinking…" : "AI suggest next step"}
+          <span>{suggesting ? "Thinking…" : "AI suggest next step"}</span>
         </button>
       )}
     </div>

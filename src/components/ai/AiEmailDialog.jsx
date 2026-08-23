@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Sparkles, Copy, Check, Wand2 } from "lucide-react";
+import { Sparkles, Copy, Check, Wand2, Send } from "lucide-react";
 import { Dialog, Button, Field, Select, Textarea, Spinner } from "../ui";
 import { aiApi } from "../../lib/services";
 import { toast } from "sonner";
+import { useNotifications } from "../../context/NotificationContext";
 
 /**
  * AI email generator dialog. Given a lead, asks Gemini to draft a subject +
@@ -14,12 +15,18 @@ export function AiEmailDialog({ open, onClose, lead }) {
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState(null);
   const [copied, setCopied] = useState(false);
+  const { addNotification } = useNotifications();
 
   const generate = async () => {
     setLoading(true);
     try {
       const res = await aiApi.generateEmail({ leadId: lead._id, purpose, tone });
       setDraft({ subject: res.subject, body: res.body });
+      addNotification({
+        title: `AI email draft for ${lead.name}`,
+        message: res.body,
+        details: `Subject: ${res.subject}`,
+      });
     } catch (err) {
       toast.error(err.message || "Could not generate email");
     } finally {
@@ -32,6 +39,11 @@ export function AiEmailDialog({ open, onClose, lead }) {
     setCopied(true);
     toast.success("Email copied to clipboard");
     setTimeout(() => setCopied(false), 1800);
+  };
+
+  const send = () => {
+    const recipient = lead?.email || "";
+    window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`;
   };
 
   return (
@@ -88,6 +100,9 @@ export function AiEmailDialog({ open, onClose, lead }) {
             />
           </Field>
           <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={send}>
+              <Send className="h-4 w-4" /> Send
+            </Button>
             <Button variant="outline" onClick={copy}>
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Copy"}

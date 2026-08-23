@@ -431,7 +431,7 @@ function LeadsBySource({ leads }) {
       ) : (
         <div className="mt-2 flex items-center gap-4">
           <div className="relative h-36 w-36 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width={144} height={144} minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={dataset}
@@ -598,7 +598,7 @@ function EngagementChart({ trend }) {
   };
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={0}>
       <BarChart data={trend} barCategoryGap="28%" margin={{ top: 30 }}>
         <CartesianGrid vertical={false} stroke="#e8eef3" strokeDasharray="4 4" />
         <XAxis
@@ -628,7 +628,7 @@ function EngagementChart({ trend }) {
 
 function BalanceChart({ trend }) {
   return (
-    <ResponsiveContainer width="100%" height={120}>
+    <ResponsiveContainer width="100%" height={120} minWidth={0} minHeight={0}>
       <AreaChart data={trend} margin={{ top: 14, right: 0, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="balance" x1="0" y1="0" x2="0" y2="1">

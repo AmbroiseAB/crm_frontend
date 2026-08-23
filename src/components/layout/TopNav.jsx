@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { Search, Bell, Menu, ChevronDown, User, LogOut, Sparkles } from "lucide-react";
+import { useState } from "react";
 import {
   Avatar,
   IconButton,
@@ -10,6 +11,7 @@ import {
 } from "../ui";
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
+import { useNotifications } from "../../context/NotificationContext";
 
 /* Centered text links — a subset of the primary nav, rendered in a white pill
    exactly like the reference top bar. */
@@ -23,7 +25,15 @@ const LINKS = [
 
 export function TopNav({ onMenuClick }) {
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markAsRead, clearNotifications } = useNotifications();
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    const query = search.trim();
+    navigate(query ? `/leads?search=${encodeURIComponent(query)}` : "/leads");
+  };
 
   return (
     <header className="flex items-center gap-3">
@@ -69,13 +79,67 @@ export function TopNav({ onMenuClick }) {
 
       {/* Right cluster */}
       <div className="ml-auto flex items-center gap-2">
-        <IconButton aria-label="Search" className="hidden sm:inline-flex">
-          <Search className="h-[18px] w-[18px]" />
-        </IconButton>
-        <IconButton aria-label="Notifications" className="relative">
-          <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-surface" />
-        </IconButton>
+        <form onSubmit={submitSearch} className="relative hidden w-40 sm:block md:w-56">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search leads..."
+            aria-label="Search leads"
+            className="h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-soft/70 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+          />
+        </form>
+        <Dropdown
+          className="w-[min(22rem,calc(100vw-2rem))]"
+          trigger={
+            <IconButton aria-label={`Notifications${unreadCount ? ` (${unreadCount} unread)` : ""}`} className="relative">
+              <Bell className="h-[18px] w-[18px]" />
+              {unreadCount > 0 && (
+                <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-surface" />
+              )}
+            </IconButton>
+          }
+        >
+          <div className="flex items-center justify-between px-3 py-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Notifications</p>
+            {notifications.length > 0 && (
+              <button onClick={clearNotifications} className="text-xs font-medium text-brand-700 hover:text-brand-800">
+                Clear all
+              </button>
+            )}
+          </div>
+          {notifications.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-ink-soft">No saved notifications</p>
+          ) : (
+            <div className="max-h-[min(28rem,70vh)] overflow-y-auto">
+              {notifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  onClick={() => markAsRead(notification.id)}
+                  className={cn(
+                    "w-full border-t border-line px-3 py-3 text-left transition hover:bg-surface-muted",
+                    !notification.read && "bg-brand-50/50"
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-ink">{notification.title}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{notification.message}</p>
+                      {notification.details && (
+                        <p className="mt-1.5 text-xs font-medium text-brand-700">{notification.details}</p>
+                      )}
+                      <p className="mt-1 text-[11px] text-ink-soft/70">
+                        {new Date(notification.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    {!notification.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Dropdown>
 
         <Dropdown
           trigger={

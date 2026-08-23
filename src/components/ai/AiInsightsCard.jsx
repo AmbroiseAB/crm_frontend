@@ -11,13 +11,16 @@ import { toast } from "sonner";
 export function AiInsightsCard() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
+  const [error, setError] = useState("");
 
   const run = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await aiApi.salesInsights({});
       setData(res);
     } catch (err) {
+      setError(err.message || "Could not generate insights");
       toast.error(err.message || "Could not generate insights");
     } finally {
       setLoading(false);
@@ -51,6 +54,7 @@ export function AiInsightsCard() {
         <Spinner />
       ) : !data ? (
         <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
+          {error && <p className="mb-3 max-w-xs text-sm text-rose-600">{error}</p>}
           <p className="max-w-xs text-sm text-ink-soft">
             Get an instant, data-driven read on your pipeline health and what to
             do next.
