@@ -30,6 +30,7 @@ import { useAuth } from "../context/AuthContext";
 import { authApi, aiApi } from "../lib/services";
 import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
+import {nameValidation, normalizeName, passwordValidation} from "../lib/validation";
 
 /* ── Small icon accent rendered beside each card title ─────────── */
 function SectionIcon({ icon: Icon, className }) {
@@ -65,7 +66,7 @@ function ProfileCard({ user, updateUser }) {
 
   const onSubmit = async (form) => {
     try {
-      const res = await authApi.updateProfile(form);
+      const res = await authApi.updateProfile({...form, name: normalizeName(form.name)});
       updateUser(res.user);
       toast.success("Profile updated");
     } catch (err) {
@@ -104,7 +105,7 @@ function ProfileCard({ user, updateUser }) {
             >
               <Input
                 placeholder="Your full name"
-                {...register("name", { required: "Name is required" })}
+                {...register("name", { validate: nameValidation() })}
               />
             </Field>
 
@@ -183,14 +184,10 @@ function SecurityCard() {
                 <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft/50" />
                 <Input
                   type="password"
-                  placeholder="Min. 6 characters"
+                  placeholder="8+ characters with upper, lower, number and symbol"
                   className="pl-9"
                   {...register("password", {
-                    required: "Password is required",
-                    minLength: {
-                      value: 6,
-                      message: "Must be at least 6 characters",
-                    },
+                    validate: passwordValidation,
                   })}
                 />
               </div>

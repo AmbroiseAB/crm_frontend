@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Dialog, Button, Field, Input, Select, Textarea } from "../ui";
 import { leadsApi } from "../../lib/services";
 import { LEAD_STAGES, LEAD_PRIORITIES, LEAD_SOURCES } from "../../lib/constants";
+import {emailValidation, nameValidation, normalizeEmail, normalizeName, PHONE_COUNTRIES, phoneValidation} from "../../lib/validation";
 
 /**
  * Create / edit a lead. When `lead` is provided we're editing; otherwise
@@ -25,6 +26,7 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
       name: lead?.name || "",
       email: lead?.email || "",
       phone: lead?.phone || "",
+      phoneCountry: lead?.phoneCountry || "CM",
       company: lead?.company || "",
       status: lead?.status || "New",
       priority: lead?.priority || "Medium",
@@ -35,7 +37,7 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
   }, [open, lead, reset]);
 
   const onSubmit = async (form) => {
-    const payload = { ...form, value: Number(form.value) || 0 };
+    const payload = { ...form, name: normalizeName(form.name), email: normalizeEmail(form.email || ""), phone: form.phone?.trim() || "", value: Number(form.value) };
     try {
       const res = editing
         ? await leadsApi.update(lead._id, payload)
@@ -60,17 +62,22 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
           <Field label="Name" error={errors.name?.message} className="col-span-2">
             <Input
               placeholder="Contact name"
-              {...register("name", { required: "Name is required" })}
+              {...register("name", { validate: nameValidation("Lead name") })}
             />
           </Field>
           <Field label="Company">
             <Input placeholder="Company" {...register("company")} />
           </Field>
           <Field label="Email">
-            <Input type="email" placeholder="email@company.com" {...register("email")} />
+            <Input type="email" placeholder="email@company.com" {...register("email", { validate: emailValidation() })} />
           </Field>
-          <Field label="Phone">
-            <Input placeholder="+237 655000000" {...register("phone")} />
+          <Field label="Phone" error={errors.phone?.message}>
+            <div className="flex gap-2">
+              <select className="w-28 rounded-xl border border-line bg-surface px-2 text-sm" {...register("phoneCountry")}>
+                {PHONE_COUNTRIES.map(([code, callingCode, label]) => <option key={code} value={code}>{callingCode} {label}</option>)}
+              </select>
+              <Input placeholder="6 55 00 00 00" {...register("phone", { validate: (value, values) => phoneValidation(values.phoneCountry)(value) })} />
+            </div>
           </Field>
           <Field label="Deal value (FCFA)">
             <Input type="number" min="0" placeholder="0" {...register("value")} />

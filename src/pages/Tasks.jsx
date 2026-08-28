@@ -160,7 +160,11 @@ function TaskFormDialog({ open, onClose, task, leads, onSaved }) {
         <Field label="Title" error={errors.title?.message}>
           <Input
             placeholder="e.g. Follow up with Acme Corp"
-            {...register("title", { required: "Title is required" })}
+            {...register("title", { validate: (value) => {
+              const title = value?.trim() || "";
+              if (!title) return "Title is required";
+              return title.length >= 2 || "Title must be at least 2 characters";
+            } })}
           />
         </Field>
 
@@ -171,8 +175,8 @@ function TaskFormDialog({ open, onClose, task, leads, onSaved }) {
 
         {/* Due date + Priority */}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Due date">
-            <Input type="date" {...register("dueDate")} />
+          <Field label="Due date" error={errors.dueDate?.message}>
+            <Input type="date" {...register("dueDate", { validate: (value) => !value || !Number.isNaN(new Date(`${value}T00:00:00`).getTime()) || "Due date must be valid" })} />
           </Field>
           <Field label="Priority">
             <Select {...register("priority")}>

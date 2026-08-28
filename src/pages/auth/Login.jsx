@@ -6,6 +6,7 @@ import { Mail, Lock } from "lucide-react";
 import { AuthShell } from "./AuthShell";
 import { Button, Field, Input } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
+import {emailValidation, normalizeEmail} from "../../lib/validation";
 
 export default function Login() {
   const { login } = useAuth();
@@ -23,7 +24,7 @@ export default function Login() {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      const user = await login(data);
+      const user = await login({...data, email: normalizeEmail(data.email)});
       toast.success(`Welcome back, ${user.name.split(" ")[0]} 👋`);
       navigate(location.state?.from?.pathname || "/", { replace: true });
     } catch (err) {
@@ -54,7 +55,7 @@ export default function Login() {
               type="email"
               placeholder="you@company.com"
               className="pl-9"
-              {...register("email", { required: "Email is required" })}
+              {...register("email", { validate: emailValidation(true) })}
             />
           </div>
         </Field>

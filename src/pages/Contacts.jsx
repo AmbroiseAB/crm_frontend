@@ -39,6 +39,7 @@ import {
 import { contactsApi } from "../lib/services";
 import { relative, shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
+import {emailValidation, nameValidation, normalizeEmail, normalizeName, PHONE_COUNTRIES, phoneValidation} from "../lib/validation";
 
 /* ─── useFlip ─────────────────────────────────────────────────────────────────
    FLIP animation: when the ordered list changes (e.g. a contact is starred and
@@ -881,6 +882,7 @@ function ContactFormDialog({ open, contact, onClose, onSaved }) {
               company: contact.company || "",
               email: contact.email || "",
               phone: contact.phone || "",
+              phoneCountry: contact.phoneCountry || "CM",
               tags: (contact.tags || []).join(", "),
               notes: contact.notes || "",
               favorite: contact.favorite || false,
@@ -908,7 +910,7 @@ function ContactFormDialog({ open, contact, onClose, onSaved }) {
           .filter(Boolean)
       : [];
 
-    const payload = { ...values, tags };
+    const payload = {...values, name: normalizeName(values.name), email: normalizeEmail(values.email || ""), phone: values.phone?.trim() || "", tags};
 
     try {
       if (isEdit) {
@@ -940,7 +942,7 @@ function ContactFormDialog({ open, contact, onClose, onSaved }) {
         {/* Name (required) */}
         <Field label="Full name" error={errors.name?.message}>
           <Input
-            {...register("name", { required: "Name is required" })}
+            {...register("name", { validate: nameValidation("Contact name") })}
             placeholder="Jane Doe"
             autoFocus
           />
@@ -960,17 +962,18 @@ function ContactFormDialog({ open, contact, onClose, onSaved }) {
         <div className="grid grid-cols-2 gap-3">
           <Field label="Email">
             <Input
-              {...register("email")}
+              {...register("email", { validate: emailValidation() })}
               type="email"
               placeholder="jane@acme.com"
             />
           </Field>
-          <Field label="Phone">
-            <Input
-              {...register("phone")}
-              type="tel"
-              placeholder="+237 655000000"
-            />
+          <Field label="Phone" error={errors.phone?.message}>
+            <div className="flex gap-2">
+              <select className="w-28 rounded-xl border border-line bg-surface px-2 text-sm" {...register("phoneCountry")}>
+                {PHONE_COUNTRIES.map(([code, callingCode, label]) => <option key={code} value={code}>{callingCode} {label}</option>)}
+              </select>
+              <Input {...register("phone", { validate: (value, formValues) => phoneValidation(formValues.phoneCountry)(value) })} type="tel" placeholder="6 55 00 00 00" />
+            </div>
           </Field>
         </div>
 

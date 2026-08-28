@@ -399,6 +399,7 @@ function NextActionDialog({ open, lead, onClose, onSave, onClear, saving }) {
   const submit = (event) => {
     event.preventDefault();
     if (!action.trim()) { setError("Action is required. Use Clear action to remove it."); return; }
+    if (action.trim().length > 500) { setError("Action cannot exceed 500 characters."); return; }
     const dueDate = new Date(due);
     if (!due || Number.isNaN(dueDate.getTime())) { setError("Enter a valid due date and time."); return; }
     onSave({nextAction: action.trim(), nextActionDueAt: dueDate.toISOString(), createTask});
@@ -498,7 +499,10 @@ function InteractionDialog({ open, lead, onClose, onCreated }) {
     if (!form.summary.trim()) { setError("Summary is required."); return; }
     setSaving(true); setError("");
     try {
-      const res = await leadsApi.createInteraction(lead._id, {...form, summary: form.summary.trim(), timestamp: new Date(form.timestamp).toISOString()});
+      const parsedTimestamp = new Date(form.timestamp);
+      if (Number.isNaN(parsedTimestamp.getTime())) { setError("Date and time must be valid."); return; }
+      if (form.summary.trim().length > 2000) { setError("Summary cannot exceed 2000 characters."); return; }
+      const res = await leadsApi.createInteraction(lead._id, {...form, summary: form.summary.trim(), timestamp: parsedTimestamp.toISOString()});
       onCreated(res.interaction);
     } catch (err) {
       setError(err.message || "Could not log interaction");

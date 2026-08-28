@@ -6,6 +6,7 @@ import { User, Mail, Lock, Building2 } from "lucide-react";
 import { AuthShell } from "./AuthShell";
 import { Button, Field, Input } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
+import {emailValidation, nameValidation, normalizeEmail, normalizeName, passwordValidation} from "../../lib/validation";
 
 export default function Register() {
   const { register: registerUser } = useAuth();
@@ -21,7 +22,7 @@ export default function Register() {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      await registerUser(data);
+      await registerUser({...data, name: normalizeName(data.name), email: normalizeEmail(data.email)});
       toast.success("Account created — welcome to INFONOVA CRM! 🎉");
       navigate("/", { replace: true });
     } catch (err) {
@@ -45,7 +46,7 @@ export default function Register() {
             <Input
               placeholder="Ambroise"
               className="pl-9"
-              {...register("name", { required: "Name is required" })}
+              {...register("name", { validate: nameValidation() })}
             />
           </div>
         </Field>
@@ -68,7 +69,7 @@ export default function Register() {
               type="email"
               placeholder="you@company.com"
               className="pl-9"
-              {...register("email", { required: "Email is required" })}
+              {...register("email", { validate: emailValidation(true) })}
             />
           </div>
         </Field>
@@ -78,11 +79,10 @@ export default function Register() {
             <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
             <Input
               type="password"
-              placeholder="At least 6 characters"
+              placeholder="Minimum 8 characters"
               className="pl-9"
               {...register("password", {
-                required: "Password is required",
-                minLength: { value: 6, message: "Minimum 6 characters" },
+                validate: passwordValidation,
               })}
             />
           </div>

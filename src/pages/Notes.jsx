@@ -172,7 +172,7 @@ function NoteFormDialog({ open, onClose, note, leads, onSaved }) {
 
   const onSubmit = async (values) => {
     const payload = {
-      content: values.content,
+      content: values.content.trim(),
       pinned: values.pinned,
       // Pass lead id only if selected; undefined removes the field on update
       lead: values.lead || undefined,
@@ -207,7 +207,10 @@ function NoteFormDialog({ open, onClose, note, leads, onSaved }) {
           <Textarea
             rows={6}
             placeholder="Write your note here…"
-            {...register("content", { required: "Note content is required." })}
+            {...register("content", { validate: (value) => {
+              if (!value?.trim()) return "Note content is required.";
+              return value.trim().length <= 10000 || "Note cannot exceed 10000 characters";
+            } })}
           />
         </Field>
 
