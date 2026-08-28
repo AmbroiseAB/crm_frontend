@@ -40,7 +40,7 @@ import {
   Skeleton,
   Avatar,
 } from "../components/ui";
-import { analyticsApi, contactsApi, leadsApi, tasksApi } from "../lib/services";
+import { actionCenterApi, analyticsApi, contactsApi, leadsApi, tasksApi } from "../lib/services";
 import { currency, shortDate, timeOf } from "../lib/format";
 import { STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
 import { useAuth } from "../context/AuthContext";
@@ -78,7 +78,7 @@ const deriveDashboardData = (leads, contacts, tasks, range = "monthly") => {
   const prevWeekStart = new Date(now);
   prevWeekStart.setDate(now.getDate() - 14);
   const periods = lastSixPeriods(range);
-  const trend = periods.map(({ key, label }) => ({ month: label, leads: 0, won: 0 }));
+  const trend = periods.map(({ label }) => ({ month: label, leads: 0, won: 0 }));
   const indexByKey = Object.fromEntries(periods.map((m, i) => [m.key, i]));
 
   let totalValue = 0;
@@ -190,6 +190,7 @@ export default function Dashboard() {
   const [contacts, setContacts] = useState([]);
   const [leads, setLeads] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [actionCenter, setActionCenter] = useState(null);
   const [range, setRange] = useState("monthly");
 
   useEffect(() => {
@@ -197,6 +198,7 @@ export default function Dashboard() {
     contactsApi.list().then((res) => setContacts(res.contacts || [])).catch(() => {});
     leadsApi.list().then((res) => setLeads(res.leads || [])).catch(() => {});
     tasksApi.list().then((res) => setTasks(res.tasks || [])).catch(() => {});
+    actionCenterApi.get().then(setActionCenter).catch(() => {});
   }, []);
 
   if (data === null) return <DashboardSkeleton />;
@@ -209,7 +211,6 @@ export default function Dashboard() {
     : data || { stats: {}, pipeline: [], trend: [], recentLeads: [] };
   const stats = dashboardData.stats || {};
 
-  const pipelineLarge = Number(stats.pipelineValue || 0) >= 100000000;
   const revenueLarge = Number(stats.revenueWon || 0) >= 100000000;
 
   // For annual view, prefer freshly-derived annual aggregates for charts so
@@ -244,6 +245,8 @@ export default function Dashboard() {
 
       {/* Balanced 3-column composition — cards distributed so the columns end
           at roughly the same height, leaving no large vertical gaps. */}
+        {actionCenter?.summary && <ActionRequiredSummary summary={actionCenter.summary} />}
+        <LeadPrioritySummary leads={leads} />
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         {/* ── Left column ───────────────────────────────── */}
         <div className="space-y-5 lg:col-span-3">
@@ -364,6 +367,38 @@ export default function Dashboard() {
       </div>
     </div>
   );
+}
+
+function ActionRequiredSummary({summary}) {
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Action required</p>
+          <p className="mt-1 font-display text-lg font-bold text-ink">{summary.total} {summary.total === 1 ? "item needs" : "items need"} attention</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          <span className="rounded-lg bg-rose-50 px-2.5 py-1 text-rose-700">{summary.overdue} overdue</span>
+          <span className="rounded-lg bg-amber-50 px-2.5 py-1 text-amber-700">{summary.dueToday} today</span>
+          <span className="rounded-lg bg-orange-50 px-2.5 py-1 text-orange-700">{summary.awaitingResponse} awaiting response</span>
+          <span className="rounded-lg bg-yellow-50 px-2.5 py-1 text-yellow-700">{summary.noNextAction} without action</span>
+        </div>
+        <Link to="/action-center" className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line px-4 text-sm font-medium text-ink transition hover:bg-surface-muted">
+          Open Action Center <ArrowUpRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function LeadPrioritySummary({leads}) {
+  const counts = leads.reduce((result, lead) => {
+    const category = lead.category || "Low";
+    result[category] = (result[category] || 0) + 1;
+    return result;
+  }, {High: 0, Medium: 0, Low: 0});
+  const topLeads = [...leads].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 3);
+  return <Card className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Lead priority</p><p className="mt-1 text-lg font-bold text-ink">Explainable ranking from CRM data</p></div><div className="flex flex-wrap gap-2 text-xs font-medium"><span className="rounded-lg bg-rose-50 px-2.5 py-1 text-rose-700">High {counts.High}</span><span className="rounded-lg bg-amber-50 px-2.5 py-1 text-amber-700">Medium {counts.Medium}</span><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-slate-600">Low {counts.Low}</span></div><div className="min-w-0 text-sm text-ink-soft">{topLeads.length ? <span>Top: {topLeads.map((lead) => `${lead.name} (${lead.score || 0})`).join(" · ")}</span> : "No leads yet."}</div></div></Card>;
 }
 
 /* ── Pipeline by stage (funnel-style breakdown) ─────────────────────── */

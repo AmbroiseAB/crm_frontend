@@ -16,6 +16,12 @@ export const leadsApi = {
   update: (id, data) => api.put(`/leads/${id}`, data),
   remove: (id) => api.delete(`/leads/${id}`),
   reorder: (updates) => api.patch("/leads/reorder", { updates }),
+  interactions: (id, params) => api.get(`/leads/${id}/interactions`, { params }),
+  createInteraction: (id, data) => api.post(`/leads/${id}/interactions`, data),
+  updateNextAction: (id, data) => api.patch(`/leads/${id}/next-action`, data),
+  completeNextAction: (id) => api.post(`/leads/${id}/next-action/complete`),
+  stageHistory: (id) => api.get(`/leads/${id}/stage-history`),
+  updateQualification: (id, data) => api.patch(`/leads/${id}/qualification`, data),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */
@@ -43,17 +49,33 @@ export const tasksApi = {
   remove: (id) => api.delete(`/tasks/${id}`),  
 };
 
-/* ── AI (canned mock responses) ─────────────────────────────────────── */
+/* ── AI ─────────────────────────────────────────────────────────────── */
 export const aiApi = {
   status: () => api.get("/ai/status"),
   leadSummary: (data) => api.post("/ai/lead-summary", data),
   generateEmail: (data) => api.post("/ai/generate-email", data),
   salesInsights: (data) => api.post("/ai/sales-insights", data),
+  results: (params) => api.get("/ai/results", {params}),
 };  
 
 /* ── Analytics (computed from the in-memory leads, so the dashboard always
       matches the Leads/Pipeline pages) ──────────────────────────────────── */
 export const analyticsApi = {
   overview: () => api.get("/analytics/overview"),
+};
+
+export const actionCenterApi = {
+  get: () => api.get("/action-center"),
+};
+
+export const notificationsApi = {
+  list: () => api.get("/notifications"),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  remove: (id) => api.delete(`/notifications/${id}`),
+  clear: () => api.delete("/notifications"),
+};
+
+export const pipelineApi = {
+  intelligence: () => api.get("/pipeline/intelligence"),
 };
 

@@ -18,7 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Sparkles, GripVertical, Building2, TrendingUp, Layers, Target, DollarSign } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
 import { Spinner, Avatar, Badge, Card } from "../components/ui";
-import { leadsApi, aiApi } from "../lib/services";
+import { leadsApi, aiApi, pipelineApi } from "../lib/services";
 import { currency } from "../lib/format";
 import { PIPELINE_STAGES, STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
 import { cn } from "../lib/utils";
@@ -35,6 +35,7 @@ const toBoard = (leads) => {
 export default function Pipeline() {
   const [board, setBoard] = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [intelligence, setIntelligence] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -45,6 +46,10 @@ export default function Pipeline() {
       .list()
       .then((res) => setBoard(toBoard(res.leads)))
       .catch(() => setBoard(toBoard([])));
+  }, []);
+
+  useEffect(() => {
+    pipelineApi.intelligence().then(setIntelligence).catch(() => setIntelligence(false));
   }, []);
 
   if (!board) return <Spinner />;
@@ -177,6 +182,8 @@ export default function Pipeline() {
         />
       </div>
 
+      <PipelineIntelligence data={intelligence} />
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -202,6 +209,10 @@ export default function Pipeline() {
       </DndContext>
     </div>
   );
+}
+
+function PipelineIntelligence({data}) {
+  return <Card className="p-6"><div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-brand-600" /><div><h2 className="text-base font-semibold text-ink">Pipeline intelligence</h2><p className="text-xs text-ink-soft">Based on recorded stage transitions</p></div></div>{data === null ? <Spinner className="p-6" /> : data === false ? <p className="py-5 text-sm text-rose-700">Could not load pipeline history.</p> : !data?.historyCount ? <p className="py-5 text-sm text-ink-soft">Not enough historical data yet.</p> : <div className="mt-5 grid gap-6 lg:grid-cols-3"><div><h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Stage conversion</h3><div className="mt-3 space-y-2">{data.conversion.map((item) => <div key={`${item.from}-${item.to}`} className="flex items-center justify-between text-sm"><span className="text-ink">{item.from} → {item.to}</span><span className="font-semibold text-ink">{item.rate === null ? "Not enough data" : `${item.rate}%`}</span></div>)}</div></div><div><h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Average time in stage</h3><div className="mt-3 space-y-2">{data.durations.map((item) => <div key={item.stage} className="flex items-center justify-between text-sm"><span className="text-ink">{item.stage}</span><span className="font-semibold text-ink">{item.average || "Not enough data"}</span></div>)}</div></div><div><h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Pipeline leakage</h3>{data.leakage.length ? <div className="mt-3 space-y-2">{data.leakage.map((item) => <div key={item.stage} className="flex items-center justify-between text-sm"><span className="text-ink">{item.stage} → Lost</span><span className="font-semibold text-rose-700">{item.lost}</span></div>)}</div> : <p className="mt-3 text-sm text-ink-soft">Not enough historical data yet.</p>}</div></div>}</Card>;
 }
 
 /* ── KPI stat tile (matches Leads page pattern) ─────────────────────── */
@@ -289,7 +300,7 @@ function SortableCard({ lead, onStageChange }) {
 /* ── Card UI ────────────────────────────────────────────────────────── */
 function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
   const [suggesting, setSuggesting] = useState(false);
-  const { addNotification } = useNotifications();
+  const {refreshNotifications} = useNotifications();
 
   // AI: suggest the next best action / priority for this lead.
   const suggest = async (e) => {
@@ -297,11 +308,7 @@ function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
     setSuggesting(true);
     try {
       const res = await aiApi.leadSummary({ leadId: lead._id });
-      addNotification({
-        title: `AI response for ${lead.name}`,
-        message: res.summary,
-        details: `${res.nextBestAction} (suggested priority: ${res.suggestedPriority})`,
-      });
+      await refreshNotifications();
       toast(`AI suggestion for ${lead.name}`, {
         description: `${res.nextBestAction} (suggested priority: ${res.suggestedPriority})`,
         duration: 7000,

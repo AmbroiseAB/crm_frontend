@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, Copy, Check, Wand2, Send } from "lucide-react";
 import { Dialog, Button, Field, Select, Textarea, Spinner } from "../ui";
 import { aiApi } from "../../lib/services";
 import { toast } from "sonner";
 import { useNotifications } from "../../context/NotificationContext";
+
+const displayAIText = (value) => typeof value === "string" ? value.replace(/\$/g, "FCFA ") : value;
 
 /**
  * AI email generator dialog. Given a lead, asks Gemini to draft a subject +
@@ -15,18 +17,18 @@ export function AiEmailDialog({ open, onClose, lead }) {
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState(null);
   const [copied, setCopied] = useState(false);
-  const { addNotification } = useNotifications();
+  const {refreshNotifications} = useNotifications();
+
+  useEffect(() => {
+    if (open && lead?._id) aiApi.results({type: "EMAIL", leadId: lead._id}).then((res) => setDraft(res.results?.[0]?.result || null)).catch(() => {});
+  }, [open, lead?._id]);
 
   const generate = async () => {
     setLoading(true);
     try {
       const res = await aiApi.generateEmail({ leadId: lead._id, purpose, tone });
       setDraft({ subject: res.subject, body: res.body });
-      addNotification({
-        title: `AI email draft for ${lead.name}`,
-        message: res.body,
-        details: `Subject: ${res.subject}`,
-      });
+      await refreshNotifications();
     } catch (err) {
       toast.error(err.message || "Could not generate email");
     } finally {
@@ -87,7 +89,7 @@ export function AiEmailDialog({ open, onClose, lead }) {
         <div className="mt-5 space-y-3 animate-fade-up">
           <Field label="Subject">
             <input
-              value={draft.subject}
+              value={displayAIText(draft.subject)}
               onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
               className="h-10 w-full rounded-xl border border-line bg-surface px-3.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
@@ -95,7 +97,7 @@ export function AiEmailDialog({ open, onClose, lead }) {
           <Field label="Body">
             <Textarea
               rows={9}
-              value={draft.body}
+              value={displayAIText(draft.body)}
               onChange={(e) => setDraft({ ...draft, body: e.target.value })}
             />
           </Field>

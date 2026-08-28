@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Search, Bell, Menu, ChevronDown, User, LogOut, Sparkles } from "lucide-react";
+import { Search, Bell, Menu, ChevronDown, User, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
   Avatar,
@@ -13,6 +13,8 @@ import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
 import { useNotifications } from "../../context/NotificationContext";
 
+const displayNotificationText = (value) => typeof value === "string" ? value.replace(/\$/g, "FCFA ") : value;
+
 /* Centered text links — a subset of the primary nav, rendered in a white pill
    exactly like the reference top bar. */
 const LINKS = [
@@ -21,11 +23,12 @@ const LINKS = [
   { to: "/pipeline", label: "Pipeline" },
   { to: "/contacts", label: "Contacts" },
   { to: "/tasks", label: "Follow-ups" },
+  { to: "/action-center", label: "Action Center" },
 ];
 
 export function TopNav({ onMenuClick }) {
   const { user, logout } = useAuth();
-  const { notifications, unreadCount, markAsRead, clearNotifications } = useNotifications();
+  const { notifications, unreadCount, markAsRead, deleteNotification, clearNotifications } = useNotifications();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
@@ -113,9 +116,8 @@ export function TopNav({ onMenuClick }) {
           ) : (
             <div className="max-h-[min(28rem,70vh)] overflow-y-auto">
               {notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => markAsRead(notification.id)}
+                <div
+                  key={notification._id}
                   className={cn(
                     "w-full border-t border-line px-3 py-3 text-left transition hover:bg-surface-muted",
                     !notification.read && "bg-brand-50/50"
@@ -123,19 +125,22 @@ export function TopNav({ onMenuClick }) {
                 >
                   <div className="flex items-start gap-2">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-ink">{notification.title}</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{notification.message}</p>
+                    <button type="button" onClick={() => markAsRead(notification._id)} className="min-w-0 flex-1 text-left">
+                      <p className="text-sm font-semibold text-ink">{displayNotificationText(notification.title)}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{displayNotificationText(notification.message)}</p>
                       {notification.details && (
-                        <p className="mt-1.5 text-xs font-medium text-brand-700">{notification.details}</p>
+                        <p className="mt-1.5 text-xs font-medium text-brand-700">{displayNotificationText(notification.details)}</p>
                       )}
                       <p className="mt-1 text-[11px] text-ink-soft/70">
                         {new Date(notification.createdAt).toLocaleString()}
                       </p>
-                    </div>
+                    </button>
+                    <button type="button" aria-label="Delete notification" onClick={() => deleteNotification(notification._id)} className="shrink-0 rounded-lg p-1 text-ink-soft hover:bg-rose-50 hover:text-rose-600">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                     {!notification.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -144,7 +149,7 @@ export function TopNav({ onMenuClick }) {
         <Dropdown
           trigger={
             <button className="flex items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-2.5 transition hover:bg-surface-muted">
-              <Avatar name={user?.name} src={user?.avatar} size="sm" />
+              <Avatar name={user?.name} size="sm" />
               <ChevronDown className="h-4 w-4 text-ink-soft" />
             </button>
           }

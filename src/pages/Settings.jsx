@@ -60,7 +60,6 @@ function ProfileCard({ user, updateUser }) {
     reset({
       name: user.name || "",
       company: user.company || "",
-      avatar: user.avatar || "",
     });
   }, [user, reset]);
 
@@ -89,7 +88,7 @@ function ProfileCard({ user, updateUser }) {
       <CardContent className="pt-5">
         {/* Avatar preview row */}
         <div className="mb-6 flex items-center gap-4 rounded-2xl border border-line bg-surface-muted px-4 py-3">
-          <Avatar name={user?.name} src={user?.avatar} size="lg" />
+          <Avatar name={user?.name} size="lg" />
           <div>
             <p className="text-sm font-semibold text-ink">{user?.name}</p>
             <p className="text-xs text-ink-soft">{user?.email}</p>
@@ -129,16 +128,6 @@ function ProfileCard({ user, updateUser }) {
               </p>
             </Field>
 
-            <Field
-              label="Avatar URL"
-              error={errors.avatar?.message}
-              className="sm:col-span-2"
-            >
-              <Input
-                placeholder="https://example.com/photo.jpg"
-                {...register("avatar")}
-              />
-            </Field>
           </div>
 
           <div className="flex justify-end pt-1">

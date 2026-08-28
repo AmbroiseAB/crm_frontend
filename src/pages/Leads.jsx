@@ -53,6 +53,7 @@ export default function Leads() {
     status: "",
     priority: "",
     source: "",
+    qualificationStatus: "",
     search: searchParams.get("search") || "",
   }));
   const [sort, setSort] = useState({ key: "updatedAt", dir: "desc" });
@@ -105,6 +106,7 @@ export default function Leads() {
       if (filters.status && l.status !== filters.status) return false;
       if (filters.priority && l.priority !== filters.priority) return false;
       if (filters.source && l.source !== filters.source) return false;
+      if (filters.qualificationStatus && l.qualificationStatus !== filters.qualificationStatus) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
         return (
@@ -140,7 +142,7 @@ export default function Leads() {
   }, [filtered, sort]);
 
   const filtersActive =
-    filters.status || filters.priority || filters.source || filters.search;
+    filters.status || filters.priority || filters.source || filters.qualificationStatus || filters.search;
 
   /* ── Handlers ─────────────────────────────────────────────────────── */
   const toggleSort = (key) =>
@@ -301,6 +303,13 @@ export default function Leads() {
               all="All sources"
               options={LEAD_SOURCES}
             />
+            <Filter
+              value={filters.qualificationStatus}
+              onChange={(v) => setFilters({ ...filters, qualificationStatus: v })}
+              all="All qualification"
+              options={["UNQUALIFIED", "QUALIFIED", "DISQUALIFIED"]}
+              labels={{ UNQUALIFIED: "Unqualified", QUALIFIED: "Qualified", DISQUALIFIED: "Disqualified" }}
+            />
           </div>
         </div>
 
@@ -326,7 +335,7 @@ export default function Leads() {
           <div className="ml-auto flex items-center gap-3">
             {filtersActive && (
               <button
-                onClick={() => setFilters({ status: "", priority: "", source: "", search: "" })}
+                onClick={() => setFilters({ status: "", priority: "", source: "", qualificationStatus: "", search: "" })}
                 className="inline-flex items-center gap-1 text-sm font-medium text-ink-soft transition hover:text-ink"
               >
                 <X className="h-3.5 w-3.5" /> Clear
@@ -398,6 +407,7 @@ export default function Leads() {
                   <th className="px-6 py-3.5 font-medium">Source</th>
                   <SortTh label="Value" k="value" sort={sort} onSort={toggleSort} align="right" />
                   <SortTh label="Updated" k="updatedAt" sort={sort} onSort={toggleSort} />
+                  <th className="px-6 py-3.5 font-medium">Next action</th>
                   <th className="px-6 py-3.5" />
                 </tr>
               </thead>
@@ -440,7 +450,7 @@ export default function Leads() {
                         </Badge>
                       </td>
                       <td className="px-6 py-3.5">
-                        <Badge className={PRIORITY_STYLES[l.priority]}>{l.priority}</Badge>
+                        <div className="flex flex-col items-start gap-1"><Badge className={PRIORITY_STYLES[l.priority]}>{l.priority}</Badge><span className="text-xs font-semibold text-brand-700">{l.score ?? 0} · {l.category || "Low"}</span></div>
                       </td>
                       <td className="px-6 py-3.5">
                         <span className="inline-flex rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-soft">
@@ -451,6 +461,7 @@ export default function Leads() {
                         {currency(l.value)}
                       </td>
                       <td className="px-6 py-3.5 text-ink-soft">{relative(l.updatedAt)}</td>
+                      <td className="px-6 py-3.5"><NextActionIndicator lead={l} /></td>
                       <td className="px-6 py-3.5" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <ChevronRight className="h-4 w-4 text-ink-soft/0 transition group-hover:text-ink-soft/60" />
@@ -608,9 +619,11 @@ function LeadGridCard({ lead, selected, onToggle, onOpen, onEdit, onDelete }) {
           {lead.status}
         </Badge>
         <Badge className={PRIORITY_STYLES[lead.priority]}>{lead.priority}</Badge>
+        <span className="inline-flex rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700">{lead.score ?? 0} · {lead.category || "Low"}</span>
         <span className="inline-flex rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-soft">
           {lead.source}
         </span>
+        <NextActionIndicator lead={lead} />
       </div>
 
       <div className="mt-4 flex items-end justify-between border-t border-line pt-4">
@@ -622,6 +635,20 @@ function LeadGridCard({ lead, selected, onToggle, onOpen, onEdit, onDelete }) {
       </div>
     </div>
   );
+}
+
+function NextActionIndicator({ lead }) {
+  if (lead.status === "Won" || lead.status === "Lost") return null;
+  if (!lead.nextAction) {
+    return <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">No action</span>;
+  }
+  const due = lead.nextActionDueAt ? new Date(lead.nextActionDueAt) : null;
+  if (!due || Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  const isToday = due.toDateString() === today.toDateString();
+  const label = due < today ? "Overdue" : isToday ? "Due today" : "Due soon";
+  const tone = due < today ? "bg-rose-50 text-rose-700" : isToday ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700";
+  return <span className={cn("inline-flex max-w-[130px] truncate rounded-lg px-2.5 py-1 text-xs font-medium", tone)} title={lead.nextAction}>{label}</span>;
 }
 
 /* ── Small building blocks ──────────────────────────────────────────── */
@@ -695,13 +722,13 @@ function SortTh({ label, k, sort, onSort, align = "left" }) {
   );
 }
 
-function Filter({ value, onChange, all, options }) {
+function Filter({ value, onChange, all, options, labels = {} }) {
   return (
     <Select value={value} onChange={(e) => onChange(e.target.value)} className="lg:w-40">
       <option value="">{all}</option>
       {options.map((o) => (
         <option key={o} value={o}>
-          {o}
+          {labels[o] || o}
         </option>
       ))}
     </Select>

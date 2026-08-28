@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Sparkles,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { to: "/notes", label: "Notes", icon: StickyNote },
   { to: "/tasks", label: "Follow-ups", icon: CalendarCheck },
+  { to: "/action-center", label: "Action Center", icon: ListChecks },
 ];
 
 export function Sidebar({ onNavigate }) {

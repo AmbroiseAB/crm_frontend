@@ -11,6 +11,7 @@ import Pipeline from "./pages/Pipeline";
 import Notes from "./pages/Notes";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
+import ActionCenter from "./pages/ActionCenter";
 
 /* Central route table. Auth routes are public; everything else is wrapped in
    the authenticated AppLayout behind <ProtectedRoute>. */
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/notes" element={<Notes />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/action-center" element={<ActionCenter />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

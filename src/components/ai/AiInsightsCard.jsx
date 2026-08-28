@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles, TrendingUp, Lightbulb, RefreshCw } from "lucide-react";
 import { Card, Button, Spinner } from "../ui";
 import { aiApi } from "../../lib/services";
 import { toast } from "sonner";
+import { useNotifications } from "../../context/NotificationContext";
+
+const displayAIText = (value) => typeof value === "string" ? value.replace(/\$/g, "FCFA ") : value;
 
 /**
  * AI Sales Insights panel — calls Gemini to analyse the current pipeline and
@@ -12,6 +15,11 @@ export function AiInsightsCard() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const {refreshNotifications} = useNotifications();
+
+  useEffect(() => {
+    aiApi.results({type: "INSIGHT"}).then((res) => setData(res.results?.[0]?.result || null)).catch(() => {});
+  }, []);
 
   const run = async () => {
     setLoading(true);
@@ -19,6 +27,7 @@ export function AiInsightsCard() {
     try {
       const res = await aiApi.salesInsights({});
       setData(res);
+      await refreshNotifications();
     } catch (err) {
       setError(err.message || "Could not generate insights");
       toast.error(err.message || "Could not generate insights");
@@ -80,7 +89,7 @@ export function AiInsightsCard() {
                 style={{ width: `${data.healthScore}%` }}
               />
             </div>
-            <p className="mt-2.5 text-sm font-medium text-ink">{data.headline}</p>
+            <p className="mt-2.5 text-sm font-medium text-ink">{displayAIText(data.headline)}</p>
           </div>
 
           <Section icon={TrendingUp} title="Observations" items={data.insights} />
@@ -105,7 +114,7 @@ function Section({ icon: Icon, title, items = [] }) {
         {items.map((t, i) => (
           <li key={i} className="flex gap-2 text-sm text-ink-soft">
             <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-300" />
-            {t}
+            {displayAIText(t)}
           </li>
         ))}
       </ul>

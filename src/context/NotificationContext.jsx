@@ -1,50 +1,34 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
+import { notificationsApi } from "../lib/services";
 
-const STORAGE_KEY = "ttp_crm_notifications";
 const NotificationContext = createContext(null);
 
-const loadNotifications = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(saved) ? saved : [];
-  } catch {
-    return [];
-  }
-};
-
 export function NotificationProvider({ children }) {
-  const [notifications, setNotifications] = useState(loadNotifications);
+  const {user} = useAuth();
+  const [notifications, setNotifications] = useState([]);
+
+  const refreshNotifications = () => {
+    if (!user) return Promise.resolve();
+    return notificationsApi.list().then((res) => setNotifications(res.notifications || []));
+  };
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications.slice(0, 30)));
-  }, [notifications]);
-
-  const addNotification = (notification) => {
-    setNotifications((current) => [
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        createdAt: new Date().toISOString(),
-        read: false,
-        ...notification,
-      },
-      ...current,
-    ].slice(0, 30));
-  };
+    if (!user) { setNotifications([]); return; }
+    refreshNotifications().catch(() => setNotifications([]));
+  }, [user]);
 
   const markAsRead = (id) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
+    notificationsApi.markRead(id).then((res) => setNotifications((current) => current.map((item) => item._id === id ? res.notification : item))).catch(() => {});
   };
 
-  const clearNotifications = () => setNotifications([]);
+  const clearNotifications = () => { notificationsApi.clear().then(() => setNotifications([])).catch(() => {}); };
+  const deleteNotification = (id) => { notificationsApi.remove(id).then(() => setNotifications((current) => current.filter((item) => item._id !== id))).catch(() => {}); };
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, addNotification, markAsRead, clearNotifications }}
+      value={{ notifications, unreadCount, markAsRead, clearNotifications, deleteNotification, refreshNotifications }}
     >
       {children}
     </NotificationContext.Provider>
