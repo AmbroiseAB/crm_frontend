@@ -323,17 +323,7 @@ function AccountCard({ user, logout }) {
       </CardHeader>
 
       <CardContent className="pt-5">
-        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Role */}
-          <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
-              Role
-            </p>
-            <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 capitalize">
-              {user?.role || "Member"}
-            </Badge>
-          </div>
-
+        <div className="mb-5 max-w-sm">
           {/* Member since */}
           <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">

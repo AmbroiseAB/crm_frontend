@@ -44,8 +44,19 @@ export function AiEmailDialog({ open, onClose, lead }) {
   };
 
   const send = () => {
-    const recipient = lead?.email || "";
-    window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`;
+    const recipient = lead?.email?.trim();
+    if (!recipient) {
+      toast.error("This lead does not have an email address");
+      return;
+    }
+
+    const composeUrl = new URL("https://mail.google.com/mail/");
+    composeUrl.searchParams.set("view", "cm");
+    composeUrl.searchParams.set("fs", "1");
+    composeUrl.searchParams.set("to", recipient);
+    composeUrl.searchParams.set("su", displayAIText(draft.subject));
+    composeUrl.searchParams.set("body", displayAIText(draft.body));
+    window.open(composeUrl.toString(), "_blank", "noopener,noreferrer");
   };
 
   return (

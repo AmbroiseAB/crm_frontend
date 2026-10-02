@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock3,
   Sparkles,
+  RefreshCw,
   Pencil,
   Trash2,
   Wand2,
@@ -78,6 +79,11 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
     }
   };
 
+  const handleLeadUpdated = (updatedLead) => {
+    setCurrentLead(updatedLead);
+    setSummary(null);
+  };
+
   const riskTone =
     summary?.riskScore >= 66
       ? "text-rose-600"
@@ -130,7 +136,7 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
         <QualificationPanel
           lead={activeLead}
           onUpdated={(updatedLead) => {
-            setCurrentLead(updatedLead);
+            handleLeadUpdated(updatedLead);
             setInteractionError("");
             leadsApi.interactions(updatedLead._id)
               .then((res) => setInteractions(res.interactions || []))
@@ -141,7 +147,7 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
         <NextActionPanel
           lead={activeLead}
           onUpdated={(updatedLead) => {
-            setCurrentLead(updatedLead);
+            handleLeadUpdated(updatedLead);
             setInteractions(null);
             Promise.all([leadsApi.interactions(updatedLead._id), leadsApi.stageHistory(updatedLead._id)])
               .then(([activity, history]) => {
@@ -166,11 +172,10 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
             <div className="flex items-center gap-2 text-sm font-semibold text-brand-800">
               <Sparkles className="h-4 w-4" /> AI Lead Summary
             </div>
-            {!summary && (
-              <Button size="sm" variant="subtle" onClick={runSummary} loading={loadingSummary}>
-                Analyze
-              </Button>
-            )}
+            <Button size="sm" variant="subtle" onClick={runSummary} loading={loadingSummary}>
+              {summary ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+              {summary ? "Regenerate" : "Analyze"}
+            </Button>
           </div>
 
           {loadingSummary && <Spinner className="p-4" />}
@@ -263,7 +268,7 @@ function QualificationPanel({lead, onUpdated}) {
       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Qualification</p><p className="mt-1 text-sm font-semibold text-ink">{QUALIFICATION_STATUSES[lead.qualificationStatus] || "Unqualified"}</p></div><Button size="sm" variant="outline" onClick={edit}><Pencil className="h-4 w-4" /> Edit qualification</Button></div>
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><Info value={BUYING_INTENTS[lead.buyingIntent] || "Not set"} label="Buying intent" /><Info value={lead.decisionMakerIdentified ? "Yes" : "No"} label="Decision maker" /><Info value={lead.budgetKnown ? "Known" : "Unknown"} label="Budget" /><Info value={lead.timelineKnown ? "Known" : "Unknown"} label="Timeline" /><Info value={lead.needIdentified ? "Identified" : "Missing"} label="Need" /></div>
     </section>
-    <section className="mt-4 rounded-2xl border border-brand-100 bg-brand-50/60 p-4"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Lead priority</p><p className="mt-1 text-2xl font-bold text-ink">{score} <span className="text-sm font-medium text-ink-soft">/ 100</span></p><p className="text-sm font-semibold text-brand-700">{lead.priorityCategory || "Low"} priority</p></div><div className="text-right"><p className="text-xs text-ink-soft">Why?</p><div className="mt-1 space-y-1 text-xs text-left">{factors.filter((factor) => factor.points > 0).slice(0, 4).map((factor) => <p key={factor.label} className="text-emerald-700">+ {factor.label}</p>)}{factors.filter((factor) => !factor.positive).slice(0, 2).map((factor) => <p key={factor.label} className="text-rose-700">− {factor.label}</p>)}</div></div></div>{missing.length > 0 && <p className="mt-3 border-t border-brand-100 pt-2 text-xs text-ink-soft">Missing information: {missing.join(", ")}</p>}</section>
+    <section className="mt-4 rounded-2xl border border-brand-100 bg-brand-50/60 p-4"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Lead priority</p><p className="mt-1 text-2xl font-bold text-ink">{score} <span className="text-sm font-medium text-ink-soft">/ 100</span></p><p className="text-sm font-semibold text-brand-700">{lead.category || "Low"} priority</p></div><div className="text-right"><p className="text-xs text-ink-soft">Why?</p><div className="mt-1 space-y-1 text-xs text-left">{factors.filter((factor) => factor.points > 0).slice(0, 4).map((factor) => <p key={factor.label} className="text-emerald-700">+ {factor.label}</p>)}{factors.filter((factor) => !factor.positive).slice(0, 2).map((factor) => <p key={factor.label} className="text-rose-700">− {factor.label}</p>)}</div></div></div>{missing.length > 0 && <p className="mt-3 border-t border-brand-100 pt-2 text-xs text-ink-soft">Missing information: {missing.join(", ")}</p>}</section>
     <Dialog open={open} onClose={() => setOpen(false)} title="Edit qualification" description="Record only what is known about this lead."><form onSubmit={save} className="space-y-4">{error && <p className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}<Field label="Qualification status"><Select value={form.qualificationStatus || "UNQUALIFIED"} onChange={(event) => setForm({...form, qualificationStatus: event.target.value})}>{Object.entries(QUALIFICATION_STATUSES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field><Field label="Buying intent"><Select value={form.buyingIntent || ""} onChange={(event) => setForm({...form, buyingIntent: event.target.value})}><option value="">Not set</option>{Object.entries(BUYING_INTENTS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field><div className="space-y-2">{[["decisionMakerIdentified", "Decision maker identified"], ["budgetKnown", "Budget known"], ["timelineKnown", "Timeline known"], ["needIdentified", "Need/problem identified"]].map(([key, label]) => <label key={key} className="flex items-center gap-3 rounded-xl border border-line bg-surface-muted/40 px-3 py-2.5 text-sm text-ink"><input type="checkbox" checked={Boolean(form[key])} onChange={(event) => setForm({...form, [key]: event.target.checked})} className="h-4 w-4 accent-brand-600" />{label}</label>)}</div><div className="flex gap-3"><Button type="button" variant="outline" className="flex-1" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" className="flex-1" loading={saving}>Save</Button></div></form></Dialog>
   </>;
 }
