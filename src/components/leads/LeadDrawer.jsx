@@ -18,14 +18,20 @@ import {
   Wand2,
   AlertCircle,
 } from "lucide-react";
+import {
+  Target,
+  Copy,
+  UserCog,
+} from "lucide-react";
 import { Drawer, Button, Badge, Avatar, Spinner, Dialog, Input, Textarea, Select, Field } from "../ui";
 import { AiEmailDialog } from "../ai/AiEmailDialog";
-import { aiApi, leadsApi } from "../../lib/services";
+import { aiApi, leadsApi, adminApi } from "../../lib/services";
 import { currency, relative, shortDate, timeOf } from "../../lib/format";
 import { STAGE_STYLES, PRIORITY_STYLES } from "../../lib/constants";
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 import { useNotifications } from "../../context/NotificationContext";
+import { useAuth } from "../../context/AuthContext";
 
 const displayAIText = (value) => typeof value === "string" ? value.replace(/\$/g, "FCFA ") : value;
 
@@ -40,6 +46,7 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
   const [stageHistory, setStageHistory] = useState(null);
   const [interactionError, setInteractionError] = useState("");
   const {refreshNotifications} = useNotifications();
+  const {canManageTeam} = useAuth();
 
   useEffect(() => {
     setCurrentLead(lead);
@@ -116,6 +123,12 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
           <p className="text-xs uppercase tracking-wide text-ink-soft">Deal value</p>
           <p className="mt-1 text-2xl font-bold text-ink">{currency(lead.value)}</p>
         </div>
+
+        <AssignmentPanel
+          lead={activeLead}
+          canManage={canManageTeam}
+          onAssigned={(updatedLead) => handleLeadUpdated(updatedLead)}
+        />
 
         {/* Contact info */}
         <div className="mt-4 space-y-2">
@@ -207,6 +220,8 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
           )}
         </div>
 
+        <NextBestActionPanel lead={activeLead} onRan={refreshNotifications} />
+
         {/* Actions */}
         <div className="mt-5 grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => setEmailOpen(true)} className="col-span-2">
@@ -236,6 +251,126 @@ export function LeadDrawer({ open, onClose, lead, onEdit, onDelete }) {
         }}
       />
     </>
+  );
+}
+
+/* Assignment: shows the current assignee; managers/admins can reassign to any
+   active org member. */
+function AssignmentPanel({ lead, canManage, onAssigned }) {
+  const [team, setTeam] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const assignee = lead.assignedTo;
+  const assigneeId = assignee?._id || assignee || "";
+
+  useEffect(() => {
+    if (!canManage) return;
+    adminApi.team().then((res) => setTeam(res.team || [])).catch(() => setTeam([]));
+  }, [canManage]);
+
+  const reassign = async (value) => {
+    setSaving(true);
+    try {
+      const res = await leadsApi.assign(lead._id, value || null);
+      onAssigned(res.lead);
+      toast.success(value ? "Lead reassigned" : "Lead unassigned");
+    } catch (err) {
+      toast.error(err.message || "Could not reassign lead");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <UserCog className="h-4 w-4 text-ink-soft" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Assigned to</p>
+            <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-ink">
+              {assignee?.name ? (<><Avatar name={assignee.name} size="xs" /> {assignee.name}</>) : "Unassigned"}
+            </p>
+          </div>
+        </div>
+      </div>
+      {canManage && (
+        <Select
+          className="mt-3"
+          value={assigneeId ? String(assigneeId) : ""}
+          disabled={saving || team === null}
+          onChange={(e) => reassign(e.target.value)}
+        >
+          <option value="">Unassigned</option>
+          {(team || []).map((m) => (
+            <option key={m.id} value={m.id}>{m.name} · {m.role}</option>
+          ))}
+        </Select>
+      )}
+    </section>
+  );
+}
+
+/* Next Best Action: AI recommends the next step + a ready-to-send message. */
+function NextBestActionPanel({ lead, onRan }) {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setResult(null);
+    if (!lead?._id) return;
+    aiApi.results({ type: "NBA", leadId: lead._id }).then((res) => setResult(res.results?.[0]?.result || null)).catch(() => {});
+  }, [lead?._id]);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const res = await aiApi.nextBestAction({ leadId: lead._id });
+      setResult(res);
+      await onRan?.();
+    } catch (err) {
+      toast.error(err.message || "Could not generate next best action");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(displayAIText(result.followUpMessage)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard may be blocked */ }
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+          <Target className="h-4 w-4" /> Next Best Action
+        </div>
+        <Button size="sm" variant="subtle" onClick={run} loading={loading}>
+          {result ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+          {result ? "Regenerate" : "Suggest"}
+        </Button>
+      </div>
+      {loading && <Spinner className="p-4" />}
+      {result && !loading && (
+        <div className="mt-3 space-y-3 animate-fade-up">
+          <div className="rounded-xl bg-surface p-3">
+            <p className="text-sm font-semibold text-ink">{displayAIText(result.recommendedAction)}</p>
+            {result.reason && <p className="mt-1 text-xs text-ink-soft">{displayAIText(result.reason)}</p>}
+          </div>
+          {result.followUpMessage && (
+            <div className="rounded-xl bg-surface p-3">
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">Ready-to-send message</p>
+                <button onClick={copy} className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium text-violet-700 hover:bg-violet-50">
+                  {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{displayAIText(result.followUpMessage)}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

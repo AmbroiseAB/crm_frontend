@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -17,13 +17,15 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Sparkles, GripVertical, Building2, TrendingUp, Layers, Target, DollarSign } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
-import { Spinner, Avatar, Badge, Card } from "../components/ui";
+import { Spinner, Avatar, Badge, Card, Dialog } from "../components/ui";
+import { WonOverridePrompt } from "../components/leads/WonOverridePrompt";
 import { leadsApi, aiApi, pipelineApi } from "../lib/services";
 import { currency } from "../lib/format";
 import { PIPELINE_STAGES, STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
 import { cn } from "../lib/utils";
 import { toast } from "sonner";
 import { useNotifications } from "../context/NotificationContext";
+import { useAuth } from "../context/AuthContext";
 
 /* Group a flat lead list into { stage: Lead[] } buckets. */
 const toBoard = (leads) => {
@@ -36,6 +38,13 @@ export default function Pipeline() {
   const [board, setBoard] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [intelligence, setIntelligence] = useState(null);
+  const { canManageTeam } = useAuth();
+  // Pending Won-gate override: {nextBoard, prevBoard, movedLeadId, leadName}
+  const [wonGate, setWonGate] = useState(null);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overriding, setOverriding] = useState(false);
+  // Board snapshot taken at drag start, used to snap cards back on failure.
+  const dragStartBoardRef = useRef(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -84,58 +93,101 @@ export default function Pipeline() {
     });
   };
 
+  /* Flatten a board into the reorder payload; `overrides` maps leadId → reason. */
+  const buildUpdates = (b, overrides = {}) => {
+    const updates = [];
+    PIPELINE_STAGES.forEach((stage) => {
+      b[stage].forEach((l, order) => {
+        const item = { id: l._id, status: stage, order };
+        if (overrides[l._id]) item.overrideReason = overrides[l._id];
+        updates.push(item);
+      });
+    });
+    return updates;
+  };
+
+  /* Persist a board; on failure (e.g. an agent hitting the Won gate) surface the
+     server message and snap every card back to the pre-move snapshot. */
+  const persist = (updates, prevBoard) =>
+    leadsApi.reorder(updates).catch((err) => {
+      toast.error(err.message || "Could not save pipeline");
+      if (prevBoard) setBoard(prevBoard);
+    });
+
+  /* Decide how to persist a completed move. Moving a non-qualified lead to Won
+     opens the manager override (reusing WonOverridePrompt); otherwise persist
+     straight away. Agents fall through and let the server return the 400. */
+  const commitMove = ({ nextBoard, prevBoard, movedLeadId, targetStage }) => {
+    const lead = Object.values(nextBoard).flat().find((l) => l._id === movedLeadId);
+    // Only a real transition INTO Won from another column is gated — reordering
+    // a card already in Won must not re-trigger the prompt.
+    const prevStage = prevBoard ? PIPELINE_STAGES.find((s) => prevBoard[s].some((l) => l._id === movedLeadId)) : null;
+    const needsOverride =
+      targetStage === "Won" && prevStage !== "Won" && lead && lead.qualificationStatus !== "QUALIFIED";
+    if (needsOverride && canManageTeam) {
+      setOverrideReason("");
+      setWonGate({ nextBoard, prevBoard, movedLeadId, leadName: lead.name });
+      return;
+    }
+    persist(buildUpdates(nextBoard), prevBoard);
+  };
+
   /* Persist the final ordering + stage to the backend. */
   const handleDragEnd = ({ active, over }) => {
     setActiveId(null);
+    const prevBoard = dragStartBoardRef.current;
     if (!over) return;
     const container = findContainer(over.id);
     if (!container) return;
 
-    setBoard((prev) => {
-      const items = [...prev[container]];
-      const oldIdx = items.findIndex((l) => l._id === active.id);
-      const newIdx = items.findIndex((l) => l._id === over.id);
-      const reordered =
-        oldIdx !== -1 && newIdx !== -1 ? arrayMove(items, oldIdx, newIdx) : items;
-      const next = { ...prev, [container]: reordered };
+    const items = [...board[container]];
+    const oldIdx = items.findIndex((l) => l._id === active.id);
+    const newIdx = items.findIndex((l) => l._id === over.id);
+    const reordered = oldIdx !== -1 && newIdx !== -1 ? arrayMove(items, oldIdx, newIdx) : items;
+    const nextBoard = { ...board, [container]: reordered };
 
-      // Build the persistence payload across all affected columns.
-      const updates = [];
-      PIPELINE_STAGES.forEach((stage) => {
-        next[stage].forEach((l, order) =>
-          updates.push({ id: l._id, status: stage, order })
-        );
-      });
-      leadsApi.reorder(updates).catch(() => toast.error("Could not save pipeline"));
-      return next;
-    });
+    setBoard(nextBoard);
+    commitMove({ nextBoard, prevBoard, movedLeadId: active.id, targetStage: container });
   };
 
   const handleStageChange = (leadId, targetStage) => {
-    setBoard((prev) => {
-      const fromStage = PIPELINE_STAGES.find((stage) =>
-        prev[stage].some((l) => l._id === leadId)
-      );
-      if (!fromStage || fromStage === targetStage) return prev;
+    const fromStage = PIPELINE_STAGES.find((stage) => board[stage].some((l) => l._id === leadId));
+    if (!fromStage || fromStage === targetStage) return;
+    const lead = board[fromStage].find((l) => l._id === leadId);
+    if (!lead) return;
 
-      const lead = prev[fromStage].find((l) => l._id === leadId);
-      if (!lead) return prev;
+    const prevBoard = board;
+    const nextBoard = {
+      ...board,
+      [fromStage]: board[fromStage].filter((l) => l._id !== leadId),
+      [targetStage]: [...board[targetStage], { ...lead, status: targetStage }],
+    };
 
-      const next = {
-        ...prev,
-        [fromStage]: prev[fromStage].filter((l) => l._id !== leadId),
-        [targetStage]: [...prev[targetStage], { ...lead, status: targetStage }],
-      };
+    setBoard(nextBoard);
+    commitMove({ nextBoard, prevBoard, movedLeadId: leadId, targetStage });
+  };
 
-      const updates = [];
-      PIPELINE_STAGES.forEach((stage) => {
-        next[stage].forEach((l, order) =>
-          updates.push({ id: l._id, status: stage, order })
-        );
-      });
-      leadsApi.reorder(updates).catch(() => toast.error("Could not save pipeline"));
-      return next;
-    });
+  const confirmWonOverride = async () => {
+    if (!overrideReason.trim()) { toast.error("Please give a reason for the override"); return; }
+    setOverriding(true);
+    try {
+      await leadsApi.reorder(buildUpdates(wonGate.nextBoard, { [wonGate.movedLeadId]: overrideReason.trim() }));
+      setWonGate(null);
+      setOverrideReason("");
+    } catch (err) {
+      toast.error(err.message || "Could not move lead to Won");
+      if (wonGate.prevBoard) setBoard(wonGate.prevBoard);
+      setWonGate(null);
+      setOverrideReason("");
+    } finally {
+      setOverriding(false);
+    }
+  };
+
+  const cancelWonOverride = () => {
+    if (wonGate?.prevBoard) setBoard(wonGate.prevBoard); // snap the card back
+    setWonGate(null);
+    setOverrideReason("");
   };
 
   /* ── KPI computations ─────────────────────────────────────────────── */
@@ -187,7 +239,7 @@ export default function Pipeline() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
-        onDragStart={({ active }) => setActiveId(active.id)}
+        onDragStart={({ active }) => { dragStartBoardRef.current = board; setActiveId(active.id); }}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
@@ -207,6 +259,22 @@ export default function Pipeline() {
           {activeLead ? <LeadCard lead={activeLead} overlay /> : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Won-gate override (managers/admins) — same prompt as the lead edit dialog. */}
+      <Dialog
+        open={Boolean(wonGate)}
+        onClose={cancelWonOverride}
+        title="Mark lead as Won?"
+        description={wonGate ? `${wonGate.leadName} isn't fully qualified yet.` : ""}
+      >
+        <WonOverridePrompt
+          reason={overrideReason}
+          onReasonChange={setOverrideReason}
+          onCancel={cancelWonOverride}
+          onConfirm={confirmWonOverride}
+          busy={overriding}
+        />
+      </Dialog>
     </div>
   );
 }

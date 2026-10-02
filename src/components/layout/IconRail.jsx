@@ -9,6 +9,8 @@ import {
   Settings,
   LogOut,
   ListChecks,
+  BarChart3,
+  Shield,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
@@ -51,7 +53,7 @@ function RailLink({ to, label, icon: Icon, end }) {
 }
 
 export function IconRail() {
-  const { logout } = useAuth();
+  const { logout, canManageTeam, isAdmin } = useAuth();
 
   return (
     <aside className="flex h-full flex-col items-center justify-center gap-2 py-4">
@@ -60,6 +62,8 @@ export function IconRail() {
         {NAV.map((item) => (
           <RailLink key={item.to} {...item} />
         ))}
+        {canManageTeam && <RailLink to="/admin/team" label="Team" icon={BarChart3} />}
+        {isAdmin && <RailLink to="/admin/users" label="Team members" icon={Shield} />}
       </nav>
 
       {/* Divider then settings + logout — kept within the vertically centered group */}

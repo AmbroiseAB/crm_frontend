@@ -9,6 +9,8 @@ import {
   Settings,
   LogOut,
   ListChecks,
+  BarChart3,
+  Shield,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../context/AuthContext";
@@ -26,7 +28,12 @@ const NAV = [
 ];
 
 export function Sidebar({ onNavigate }) {
-  const { logout } = useAuth();
+  const { logout, canManageTeam, isAdmin } = useAuth();
+  const nav = [
+    ...NAV,
+    ...(canManageTeam ? [{ to: "/admin/team", label: "Team", icon: BarChart3 }] : []),
+    ...(isAdmin ? [{ to: "/admin/users", label: "Team members", icon: Shield }] : []),
+  ];
 
   return (
     <aside className="flex h-full w-64 flex-col bg-surface border-r border-line">
@@ -37,7 +44,7 @@ export function Sidebar({ onNavigate }) {
 
       {/* Nav links */}
       <nav className="flex-1 space-y-1 px-3">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {nav.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

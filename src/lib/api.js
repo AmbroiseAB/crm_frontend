@@ -29,5 +29,18 @@ api.interceptors.response.use(
   }
 );
 
+/* Token-less client for public (unauthenticated) endpoints such as the
+   web-to-lead form. Never attaches the JWT. */
+export const publicApi = axios.create({ baseURL });
+publicApi.interceptors.response.use(
+  (res) => res.data,
+  (error) => {
+    const status = error.response?.status;
+    const message =
+      error.response?.data?.message || error.message || "Something went wrong";
+    return Promise.reject({ status, message });
+  }
+);
+
 export default api;
 

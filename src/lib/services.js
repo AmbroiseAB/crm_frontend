@@ -1,4 +1,4 @@
-import api from "./api";
+import api, { publicApi as publicClient } from "./api";
 
 /* ── Auth ───────────────────────────────────────────────────────────── */
 export const authApi = {
@@ -22,6 +22,7 @@ export const leadsApi = {
   completeNextAction: (id) => api.post(`/leads/${id}/next-action/complete`),
   stageHistory: (id) => api.get(`/leads/${id}/stage-history`),
   updateQualification: (id, data) => api.patch(`/leads/${id}/qualification`, data),
+  assign: (id, assignedTo) => api.patch(`/leads/${id}/assign`, { assignedTo }),
 };
 
 /* ── Contacts ───────────────────────────────────────────────────────── */
@@ -54,9 +55,10 @@ export const aiApi = {
   status: () => api.get("/ai/status"),
   leadSummary: (data) => api.post("/ai/lead-summary", data),
   generateEmail: (data) => api.post("/ai/generate-email", data),
+  nextBestAction: (data) => api.post("/ai/next-best-action", data),
   salesInsights: (data) => api.post("/ai/sales-insights", data),
   results: (params) => api.get("/ai/results", {params}),
-};  
+};
 
 /* ── Analytics (computed from the in-memory leads, so the dashboard always
       matches the Leads/Pipeline pages) ──────────────────────────────────── */
@@ -77,5 +79,22 @@ export const notificationsApi = {
 
 export const pipelineApi = {
   intelligence: () => api.get("/pipeline/intelligence"),
+};
+
+/* ── Admin / org ────────────────────────────────────────────────────── */
+export const adminApi = {
+  listUsers: () => api.get("/admin/users"),
+  inviteUser: (data) => api.post("/admin/users", data),
+  setRole: (id, role) => api.patch(`/admin/users/${id}/role`, { role }),
+  setActive: (id, active) => api.patch(`/admin/users/${id}/active`, { active }),
+  getOrg: () => api.get("/admin/org"),
+  updateOrg: (data) => api.patch("/admin/org", data),
+  team: () => api.get("/admin/team"),
+};
+
+/* ── Public web-to-lead (no auth) ───────────────────────────────────── */
+export const publicApi = {
+  getOrg: (slug) => publicClient.get(`/public/orgs/${slug}`),
+  submitLead: (slug, data) => publicClient.post(`/public/leads/${slug}`, data),
 };
 

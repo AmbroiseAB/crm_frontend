@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Dialog, Button, Field, Input, Select, Textarea } from "../ui";
-import { leadsApi } from "../../lib/services";
+import { WonOverridePrompt } from "./WonOverridePrompt";
+import { leadsApi, adminApi } from "../../lib/services";
+import { useAuth } from "../../context/AuthContext";
 import { LEAD_STAGES, LEAD_PRIORITIES, LEAD_SOURCES } from "../../lib/constants";
 import {emailValidation, nameValidation, normalizeEmail, normalizeName, PHONE_COUNTRIES, phoneValidation} from "../../lib/validation";
 
@@ -12,6 +14,10 @@ import {emailValidation, nameValidation, normalizeEmail, normalizeName, PHONE_CO
  */
 export function LeadFormDialog({ open, onClose, lead, onSaved }) {
   const editing = Boolean(lead?._id);
+  const { canManageTeam } = useAuth();
+  const [team, setTeam] = useState([]);
+  const [wonBlock, setWonBlock] = useState(null); // pending payload when Won is gated
+  const [overrideReason, setOverrideReason] = useState("");
   const {
     register,
     handleSubmit,
@@ -19,9 +25,17 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
     formState: { errors, isSubmitting },
   } = useForm();
 
+  // Managers/admins may pick an assignee when creating a lead.
+  useEffect(() => {
+    if (!open || !canManageTeam) return;
+    adminApi.team().then((res) => setTeam(res.team || [])).catch(() => setTeam([]));
+  }, [open, canManageTeam]);
+
   // Reset the form whenever the target lead changes / dialog opens.
   useEffect(() => {
     if (!open) return;
+    setWonBlock(null);
+    setOverrideReason("");
     reset({
       name: lead?.name || "",
       email: lead?.email || "",
@@ -33,20 +47,43 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
       source: lead?.source || "Website",
       value: lead?.value || 0,
       notes: lead?.notes || "",
+      assignedTo: (lead?.assignedTo?._id || lead?.assignedTo || ""),
     });
   }, [open, lead, reset]);
 
+  const save = async (payload) => {
+    const res = editing
+      ? await leadsApi.update(lead._id, payload)
+      : await leadsApi.create(payload);
+    toast.success(editing ? "Lead updated" : "Lead created");
+    onSaved?.(res.lead);
+    setWonBlock(null);
+    onClose();
+  };
+
   const onSubmit = async (form) => {
     const payload = { ...form, name: normalizeName(form.name), email: normalizeEmail(form.email || ""), phone: form.phone?.trim() || "", value: Number(form.value) };
+    // Only managers/admins may set an assignee; otherwise let the server decide.
+    if (!canManageTeam || editing) delete payload.assignedTo;
     try {
-      const res = editing
-        ? await leadsApi.update(lead._id, payload)
-        : await leadsApi.create(payload);
-      toast.success(editing ? "Lead updated" : "Lead created");
-      onSaved?.(res.lead);
-      onClose();
+      await save(payload);
     } catch (err) {
+      // Blocked Won transition → let managers/admins override with a reason.
+      if (canManageTeam && /marked Qualified/i.test(err.message || "")) {
+        setWonBlock(payload);
+        return;
+      }
       toast.error(err.message || "Could not save lead");
+    }
+  };
+
+  const confirmOverride = async () => {
+    if (!overrideReason.trim()) { toast.error("Please give a reason for the override"); return; }
+    try {
+      await save({ ...wonBlock, overrideReason: overrideReason.trim() });
+      setOverrideReason("");
+    } catch (err) {
+      toast.error(err.message || "Could not override");
     }
   };
 
@@ -96,13 +133,23 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
               ))}
             </Select>
           </Field>
-          <Field label="Source" className="col-span-2">
+          <Field label="Source" className={canManageTeam && !editing ? "" : "col-span-2"}>
             <Select {...register("source")}>
               {LEAD_SOURCES.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </Select>
           </Field>
+          {canManageTeam && !editing && (
+            <Field label="Assign to">
+              <Select {...register("assignedTo")}>
+                <option value="">Auto / me</option>
+                {team.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field label="Notes" className="col-span-2">
             <Textarea placeholder="Context, next steps…" {...register("notes")} />
           </Field>
@@ -117,6 +164,17 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
           </Button>
         </div>
       </form>
+
+      {/* Won gate override — managers/admins only. */}
+      {wonBlock && (
+        <WonOverridePrompt
+          className="mt-4"
+          reason={overrideReason}
+          onReasonChange={setOverrideReason}
+          onCancel={() => { setWonBlock(null); setOverrideReason(""); }}
+          onConfirm={confirmOverride}
+        />
+      )}
     </Dialog>
   );
 }

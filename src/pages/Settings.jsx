@@ -10,6 +10,9 @@ import {
   Shield,
   Mail,
   KeyRound,
+  Building2,
+  Link2,
+  Copy,
 } from "lucide-react";
 
 import {
@@ -27,7 +30,7 @@ import {
 } from "../components/ui";
 import { PageHeader } from "../components/common/PageHeader";
 import { useAuth } from "../context/AuthContext";
-import { authApi, aiApi } from "../lib/services";
+import { authApi, aiApi, adminApi } from "../lib/services";
 import { shortDate } from "../lib/format";
 import { cn } from "../lib/utils";
 import {nameValidation, normalizeName, passwordValidation} from "../lib/validation";
@@ -220,6 +223,108 @@ function SecurityCard() {
   );
 }
 
+/* ── Organization card (admin only) ────────────────────────────── */
+function OrgSettingsCard() {
+  const [org, setOrg] = useState(null); // null = loading
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { register, handleSubmit, reset } = useForm();
+
+  useEffect(() => {
+    adminApi.getOrg()
+      .then((res) => { setOrg(res.orgSettings); reset({ name: res.orgSettings.name || "", slug: res.orgSettings.slug || "" }); })
+      .catch(() => setOrg({ name: "", slug: null, autoAssign: false }));
+  }, [reset]);
+
+  const formUrl = org?.slug ? `${window.location.origin}/f/${org.slug}` : "";
+
+  const save = async (form) => {
+    setSaving(true);
+    try {
+      const res = await adminApi.updateOrg({ name: form.name, slug: form.slug });
+      setOrg(res.orgSettings);
+      reset({ name: res.orgSettings.name || "", slug: res.orgSettings.slug || "" });
+      toast.success("Organization updated");
+    } catch (err) {
+      toast.error(err.message || "Could not update organization");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleAutoAssign = async () => {
+    try {
+      const res = await adminApi.updateOrg({ autoAssign: !org.autoAssign });
+      setOrg(res.orgSettings);
+      toast.success(res.orgSettings.autoAssign ? "Auto-assignment on" : "Auto-assignment off");
+    } catch (err) {
+      toast.error(err.message || "Could not update auto-assignment");
+    }
+  };
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(formUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard may be blocked */ }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <SectionIcon icon={Building2} />
+          <div>
+            <CardTitle>Organization</CardTitle>
+            <CardDescription>Workspace name, public lead form, and assignment.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-5">
+        {org === null ? (
+          <div className="flex items-center gap-3 py-2"><Spinner className="p-0" /><span className="text-sm text-ink-soft">Loading…</span></div>
+        ) : (
+          <div className="space-y-5">
+            <form onSubmit={handleSubmit(save)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Organization name"><Input placeholder="Your company" {...register("name")} /></Field>
+              <Field label="Form slug">
+                <Input placeholder="your-company" {...register("slug")} />
+                <p className="mt-1 text-xs text-ink-soft">Used in your public form link.</p>
+              </Field>
+              <div className="sm:col-span-2 flex justify-end">
+                <Button type="submit" loading={saving}>Save organization</Button>
+              </div>
+            </form>
+
+            {/* Shareable form link */}
+            <div className="rounded-2xl border border-line bg-surface-muted/50 p-4">
+              <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                <Link2 className="h-3.5 w-3.5" /> Public lead form
+              </p>
+              {formUrl ? (
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-surface px-3 py-2">
+                  <code className="truncate font-mono text-xs text-ink">{formUrl}</code>
+                  <button onClick={copyLink} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">
+                    {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-ink-soft">Set a form slug above to generate a shareable link.</p>
+              )}
+            </div>
+
+            {/* Auto-assign toggle */}
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line bg-surface-muted/40 px-4 py-3">
+              <span>
+                <span className="block text-sm font-medium text-ink">Round-robin auto-assignment</span>
+                <span className="block text-xs text-ink-soft">Spread new leads evenly across active agents.</span>
+              </span>
+              <input type="checkbox" checked={Boolean(org.autoAssign)} onChange={toggleAutoAssign} className="h-5 w-5 accent-brand-600" />
+            </label>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── 3. AI Integration status card ─────────────────────────────── */
 function AiIntegrationCard() {
   const [status, setStatus] = useState(null); // null = loading
@@ -347,7 +452,7 @@ function AccountCard({ user, logout }) {
 
 /* ── Page root ──────────────────────────────────────────────────── */
 export default function Settings() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser, logout, isAdmin } = useAuth();
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -357,6 +462,7 @@ export default function Settings() {
       />
 
       <ProfileCard user={user} updateUser={updateUser} />
+      {isAdmin && <OrgSettingsCard />}
       <SecurityCard />
       <AiIntegrationCard />
       <AccountCard user={user} logout={logout} />

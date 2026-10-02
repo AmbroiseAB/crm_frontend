@@ -51,9 +51,14 @@ export function AuthProvider({ children }) {
     setUser((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  const role = user?.role || "admin";
+  const isAdmin = role === "admin";
+  const isManager = role === "manager";
+  const canManageTeam = isAdmin || isManager; // admin + manager see the team view
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, logout, updateUser }}
+      value={{ user, loading, login, register, logout, updateUser, role, isAdmin, isManager, canManageTeam }}
     >
       {children}
     </AuthContext.Provider>

@@ -50,13 +50,21 @@ export function AiEmailDialog({ open, onClose, lead }) {
       return;
     }
 
+    const subject = displayAIText(draft.subject);
+    const body = displayAIText(draft.body);
+
+    // Copy the full email first, so if Gmail doesn't pre-fill a field the user
+    // can paste the subject + body straight in before sending.
+    navigator.clipboard?.writeText(`Subject: ${subject}\n\n${body}`).catch(() => {});
+
     const composeUrl = new URL("https://mail.google.com/mail/");
     composeUrl.searchParams.set("view", "cm");
     composeUrl.searchParams.set("fs", "1");
     composeUrl.searchParams.set("to", recipient);
-    composeUrl.searchParams.set("su", displayAIText(draft.subject));
-    composeUrl.searchParams.set("body", displayAIText(draft.body));
+    composeUrl.searchParams.set("su", subject);
+    composeUrl.searchParams.set("body", body);
     window.open(composeUrl.toString(), "_blank", "noopener,noreferrer");
+    toast.success(`Gmail opened for ${recipient} with the draft pre-filled (also copied to your clipboard).`);
   };
 
   return (

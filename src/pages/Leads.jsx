@@ -34,7 +34,8 @@ import {
   DropdownItem,
   Spinner,
 } from "../components/ui";
-import { leadsApi } from "../lib/services";
+import { leadsApi, adminApi } from "../lib/services";
+import { useAuth } from "../context/AuthContext";
 import { currency, relative } from "../lib/format";
 import {
   LEAD_STAGES,
@@ -48,12 +49,15 @@ import { toast } from "sonner";
 
 export default function Leads() {
   const [searchParams] = useSearchParams();
+  const { canManageTeam } = useAuth();
   const [leads, setLeads] = useState(null);
+  const [team, setTeam] = useState([]); // active org members (managers/admins only)
   const [filters, setFilters] = useState(() => ({
     status: "",
     priority: "",
     source: "",
     qualificationStatus: "",
+    assignedTo: "",
     search: searchParams.get("search") || "",
   }));
   const [sort, setSort] = useState({ key: "updatedAt", dir: "desc" });
@@ -73,6 +77,12 @@ export default function Leads() {
     leadsApi.list().then((res) => setLeads(res.leads)).catch(() => setLeads([]));
   };
   useEffect(load, []);
+
+  // Managers/admins can filter + reassign across the team; fetch the roster once.
+  useEffect(() => {
+    if (!canManageTeam) return;
+    adminApi.team().then((res) => setTeam(res.team || [])).catch(() => setTeam([]));
+  }, [canManageTeam]);
 
   /* ── Derived data ─────────────────────────────────────────────────── */
   // Counts per stage drive the quick-filter chips (independent of the active
@@ -107,6 +117,10 @@ export default function Leads() {
       if (filters.priority && l.priority !== filters.priority) return false;
       if (filters.source && l.source !== filters.source) return false;
       if (filters.qualificationStatus && l.qualificationStatus !== filters.qualificationStatus) return false;
+      if (filters.assignedTo) {
+        const assigneeId = l.assignedTo?._id || l.assignedTo;
+        if (filters.assignedTo === "unassigned" ? Boolean(assigneeId) : String(assigneeId) !== filters.assignedTo) return false;
+      }
       if (filters.search) {
         const q = filters.search.toLowerCase();
         return (
@@ -142,7 +156,7 @@ export default function Leads() {
   }, [filtered, sort]);
 
   const filtersActive =
-    filters.status || filters.priority || filters.source || filters.qualificationStatus || filters.search;
+    filters.status || filters.priority || filters.source || filters.qualificationStatus || filters.assignedTo || filters.search;
 
   /* ── Handlers ─────────────────────────────────────────────────────── */
   const toggleSort = (key) =>
@@ -310,6 +324,19 @@ export default function Leads() {
               options={["UNQUALIFIED", "QUALIFIED", "DISQUALIFIED"]}
               labels={{ UNQUALIFIED: "Unqualified", QUALIFIED: "Qualified", DISQUALIFIED: "Disqualified" }}
             />
+            {canManageTeam && (
+              <Select
+                value={filters.assignedTo}
+                onChange={(e) => setFilters({ ...filters, assignedTo: e.target.value })}
+                className="lg:w-44"
+              >
+                <option value="">All assignees</option>
+                <option value="unassigned">Unassigned</option>
+                {team.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </Select>
+            )}
           </div>
         </div>
 
@@ -335,7 +362,7 @@ export default function Leads() {
           <div className="ml-auto flex items-center gap-3">
             {filtersActive && (
               <button
-                onClick={() => setFilters({ status: "", priority: "", source: "", qualificationStatus: "", search: "" })}
+                onClick={() => setFilters({ status: "", priority: "", source: "", qualificationStatus: "", assignedTo: "", search: "" })}
                 className="inline-flex items-center gap-1 text-sm font-medium text-ink-soft transition hover:text-ink"
               >
                 <X className="h-3.5 w-3.5" /> Clear
@@ -405,6 +432,7 @@ export default function Leads() {
                   <th className="px-6 py-3.5 font-medium">Stage</th>
                   <th className="px-6 py-3.5 font-medium">Priority</th>
                   <th className="px-6 py-3.5 font-medium">Source</th>
+                  <th className="px-6 py-3.5 font-medium">Assigned to</th>
                   <SortTh label="Value" k="value" sort={sort} onSort={toggleSort} align="right" />
                   <SortTh label="Updated" k="updatedAt" sort={sort} onSort={toggleSort} />
                   <th className="px-6 py-3.5 font-medium">Next action</th>
@@ -457,6 +485,7 @@ export default function Leads() {
                           {l.source}
                         </span>
                       </td>
+                      <td className="px-6 py-3.5"><AssigneeCell lead={l} /></td>
                       <td className="px-6 py-3.5 text-right font-semibold text-ink">
                         {currency(l.value)}
                       </td>
@@ -624,6 +653,13 @@ function LeadGridCard({ lead, selected, onToggle, onOpen, onEdit, onDelete }) {
           {lead.source}
         </span>
         <NextActionIndicator lead={lead} />
+        {lead.assignedTo?.name ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-soft">
+            <Avatar name={lead.assignedTo.name} size="xs" /> {lead.assignedTo.name}
+          </span>
+        ) : (
+          <span className="inline-flex rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Unassigned</span>
+        )}
       </div>
 
       <div className="mt-4 flex items-end justify-between border-t border-line pt-4">
@@ -633,6 +669,19 @@ function LeadGridCard({ lead, selected, onToggle, onOpen, onEdit, onDelete }) {
         </div>
         <span className="text-xs text-ink-soft">{relative(lead.updatedAt)}</span>
       </div>
+    </div>
+  );
+}
+
+function AssigneeCell({ lead }) {
+  const assignee = lead.assignedTo;
+  if (!assignee || !assignee.name) {
+    return <span className="inline-flex rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">Unassigned</span>;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Avatar name={assignee.name} size="sm" />
+      <span className="truncate text-xs text-ink-soft">{assignee.name}</span>
     </div>
   );
 }

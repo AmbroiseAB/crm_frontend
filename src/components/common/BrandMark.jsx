@@ -1,17 +1,39 @@
-import logo from "../../assets/infonova-logo.svg";
-import lightLogo from "../../assets/infonova-logo-light.svg";
 import mark from "../../assets/infonova-mark.svg";
 import lightMark from "../../assets/infonova-mark-light.svg";
+import { cn } from "../../lib/utils";
 
-export function BrandMark({ className = "h-9 w-auto", light = false, compact = false }) {
-  if (!compact) {
-    return <img src={light ? lightLogo : logo} alt="InfoNova CRM" className={className} />;
-  }
+/**
+ * Brand lockup: the clean, text-less icon mark + a crisp HTML wordmark
+ * ("Infonova" + a small orange "CRM"), typeset in the app's own fonts rather
+ * than baked into the SVG.
+ *
+ * - `className` sizes the icon (e.g. "h-9 w-auto").
+ * - `light`     selects the mark + text colors for dark backgrounds.
+ * - `showText`  set false for an icon-only lockup in tight spaces.
+ */
+export function BrandMark({ className = "h-9 w-auto", light = false, showText = true }) {
+  const icon = (
+    <img
+      src={light ? lightMark : mark}
+      alt="Infonova CRM"
+      draggable={false}
+      className={className}
+    />
+  );
+
+  if (!showText) return icon;
 
   return (
-    <>
-      <img src={light ? lightMark : mark} alt="InfoNova CRM" className={`h-9 w-9 sm:hidden ${className}`} />
-      <img src={light ? lightLogo : logo} alt="InfoNova CRM" className={`hidden sm:block ${className}`} />
-    </>
+    <span className="inline-flex items-center gap-2.5">
+      {icon}
+      <span className="flex flex-col leading-none">
+        <span className={cn("font-display text-lg font-bold tracking-tight", light ? "text-white" : "text-ink")}>
+          Infonova
+        </span>
+        <span className={cn("text-[10px] font-bold uppercase tracking-[0.22em]", light ? "text-accent-300" : "text-accent-400")}>
+          CRM
+        </span>
+      </span>
+    </span>
   );
 }
