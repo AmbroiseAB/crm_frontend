@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { cn } from "../../lib/utils";
 import { useNotifications } from "../../context/NotificationContext";
+import { BrandMark } from "../common/BrandMark";
 
 const displayNotificationText = (value) => typeof value === "string" ? value.replace(/\$/g, "FCFA ") : value;
 
@@ -21,8 +22,6 @@ const LINKS = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/leads", label: "Leads" },
   { to: "/pipeline", label: "Pipeline" },
-  { to: "/contacts", label: "Contacts" },
-  { to: "/tasks", label: "Follow-ups" },
   { to: "/action-center", label: "Action Center" },
 ];
 
@@ -41,13 +40,8 @@ export function TopNav({ onMenuClick }) {
   return (
     <header className="flex items-center gap-3">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 pr-2">
-        <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-xl text-white">
-          <Sparkles className="h-5 w-5" />
-        </div>
-        <span className="hidden font-display text-lg font-bold text-ink sm:block">
-          INFONOVA CRM
-        </span>
+      <div className="pr-2">
+        <BrandMark className="h-9 w-auto max-w-[9rem]" compact />
       </div>
 
       {/* Mobile menu toggle */}

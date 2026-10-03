@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Sparkles, GripVertical, Building2, TrendingUp, Layers, Target, DollarSign } from "lucide-react";
 import { PageHeader } from "../components/common/PageHeader";
-import { Spinner, Avatar, Badge, Card } from "../components/ui";
+import { Spinner, Avatar, Badge, Card, Select } from "../components/ui";
 import { leadsApi, aiApi, pipelineApi } from "../lib/services";
 import { currency } from "../lib/format";
 import { PIPELINE_STAGES, STAGE_STYLES, PRIORITY_STYLES } from "../lib/constants";
@@ -361,17 +361,17 @@ function LeadCard({ lead, dragHandle, overlay, onStageChange }) {
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:hidden">
             <Badge className={PRIORITY_STYLES[lead.priority]}>{lead.priority}</Badge>
-            <select
+            <Select
               value={lead.status}
               onChange={(e) => onStageChange?.(lead._id, e.target.value)}
-              className="w-auto min-w-[7rem] max-w-[10rem] rounded-xl border border-line/70 bg-surface px-3 py-1.5 text-xs text-ink-soft shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+              className="min-w-[7rem] max-w-[10rem]"
             >
               {PIPELINE_STAGES.map((stage) => (
                 <option key={stage} value={stage}>
                   {stage}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       )}

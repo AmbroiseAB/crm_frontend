@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-labelledby="title desc">
+  <title id="title">InfoNova CRM mark</title>
+  <desc id="desc">An orbital network mark in navy, orange and light blue.</desc>
+  <defs>
+    <linearGradient id="mark" x1="18" y1="18" x2="162" y2="162" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A4D9B" />
+      <stop offset="1" stop-color="#07345F" />
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="156" height="156" rx="42" fill="url(#mark)" />
+  <ellipse cx="90" cy="90" rx="54" ry="23" transform="rotate(-34 90 90)" fill="none" stroke="#F58220" stroke-width="9" />
+  <ellipse cx="90" cy="90" rx="54" ry="23" transform="rotate(34 90 90)" fill="none" stroke="#8FC4F2" stroke-width="7" opacity=".95" />
+  <circle cx="90" cy="90" r="15" fill="#fff" />
+  <circle cx="44" cy="61" r="9" fill="#F58220" />
+  <circle cx="137" cy="119" r="9" fill="#F58220" />
+  <circle cx="135" cy="58" r="7" fill="#8FC4F2" />
+</svg>

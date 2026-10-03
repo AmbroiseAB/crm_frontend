@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
+import PublicLeadForm from "./pages/public/LeadForm";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
 import Contacts from "./pages/Contacts";
@@ -21,6 +22,7 @@ export default function App() {
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/lead/:token" element={<PublicLeadForm />} />
 
       {/* Private */}
       <Route

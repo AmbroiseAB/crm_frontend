@@ -10,6 +10,11 @@ import {
   Shield,
   Mail,
   KeyRound,
+  Crown,
+  Link2,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 
 import {
@@ -91,7 +96,13 @@ function ProfileCard({ user, updateUser }) {
         <div className="mb-6 flex items-center gap-4 rounded-2xl border border-line bg-surface-muted px-4 py-3">
           <Avatar name={user?.name} size="lg" />
           <div>
-            <p className="text-sm font-semibold text-ink">{user?.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-ink">{user?.name}</p>
+              <Badge className="border border-amber-200/70 bg-amber-50 text-amber-700">
+                <Crown className="h-3 w-3" />
+                Owner
+              </Badge>
+            </div>
             <p className="text-xs text-ink-soft">{user?.email}</p>
           </div>
         </div>
@@ -142,6 +153,75 @@ function ProfileCard({ user, updateUser }) {
   );
 }
 
+/* ── Public lead-capture link ───────────────────────────────────── */
+function PublicLinkCard() {
+  const [url, setUrl] = useState(null); // null = loading
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    authApi
+      .publicLink()
+      .then((res) => setUrl(`${window.location.origin}/lead/${res.token}`))
+      .catch(() => setUrl(""));
+  }, []);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("Link copied");
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Could not copy the link");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <SectionIcon icon={Link2} />
+          <div>
+            <CardTitle>Public lead form</CardTitle>
+            <CardDescription>
+              Share this link to collect leads — anyone who fills it in lands in your Leads.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-5">
+        {url === null ? (
+          <div className="flex items-center gap-3 py-2">
+            <Spinner className="p-0" />
+            <span className="text-sm text-ink-soft">Preparing your link…</span>
+          </div>
+        ) : url === "" ? (
+          <p className="text-sm text-ink-soft">Could not load your link. Please refresh the page.</p>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input value={url} readOnly className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={copy} className="shrink-0">
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-4 w-4" /> Open
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ── 2. Security / change-password form ────────────────────────── */
 function SecurityCard() {
   const {
@@ -154,9 +234,9 @@ function SecurityCard() {
 
   const newPassword = watch("password");
 
-  const onSubmit = async ({ password }) => {
+  const onSubmit = async ({ currentPassword, password }) => {
     try {
-      await authApi.updateProfile({ password });
+      await authApi.updateProfile({ currentPassword, password });
       toast.success("Password updated");
       reset();
     } catch (err) {
@@ -178,6 +258,20 @@ function SecurityCard() {
 
       <CardContent className="pt-5">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Field label="Current password" error={errors.currentPassword?.message}>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft/50" />
+              <Input
+                type="password"
+                placeholder="Enter your current password"
+                className="pl-9"
+                {...register("currentPassword", {
+                  required: "Current password is required",
+                })}
+              />
+            </div>
+          </Field>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="New password" error={errors.password?.message}>
               <div className="relative">
@@ -323,17 +417,7 @@ function AccountCard({ user, logout }) {
       </CardHeader>
 
       <CardContent className="pt-5">
-        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Role */}
-          <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
-              Role
-            </p>
-            <Badge className="bg-brand-50 text-brand-700 border border-brand-200/60 capitalize">
-              {user?.role || "Member"}
-            </Badge>
-          </div>
-
+        <div className="mb-5 max-w-sm">
           {/* Member since */}
           <div className="rounded-2xl border border-line bg-surface-muted px-4 py-3">
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
@@ -367,6 +451,7 @@ export default function Settings() {
       />
 
       <ProfileCard user={user} updateUser={updateUser} />
+      <PublicLinkCard />
       <SecurityCard />
       <AiIntegrationCard />
       <AccountCard user={user} logout={logout} />

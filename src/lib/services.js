@@ -6,6 +6,13 @@ export const authApi = {
   register: (data) => api.post("/auth/register", data),
   me: () => api.get("/auth/me"),
   updateProfile: (data) => api.put("/auth/profile", data),
+  publicLink: () => api.get("/auth/public-link"),
+};
+
+/* ── Public lead-capture form (no auth) ─────────────────────────────── */
+export const publicApi = {
+  form: (token) => api.get(`/public/leads/${token}`),
+  submitLead: (token, data) => api.post(`/public/leads/${token}`, data),
 };
 
 /* ── Leads ──────────────────────────────────────────────────────────── */

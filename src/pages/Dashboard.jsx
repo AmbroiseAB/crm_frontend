@@ -528,7 +528,7 @@ function UpcomingTasks({ tasks }) {
         to="/tasks"
       />
       {upcoming.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink-soft">You're all caught up 🎉</p>
+        <p className="py-8 text-center text-sm text-ink-soft">You're all caught up</p>
       ) : (
         <ul className="mt-4 space-y-3">
           {upcoming.map((t) => {

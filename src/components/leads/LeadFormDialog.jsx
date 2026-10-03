@@ -73,9 +73,9 @@ export function LeadFormDialog({ open, onClose, lead, onSaved }) {
           </Field>
           <Field label="Phone" error={errors.phone?.message}>
             <div className="flex gap-2">
-              <select className="w-28 rounded-xl border border-line bg-surface px-2 text-sm" {...register("phoneCountry")}>
+              <Select className="w-28 shrink-0" {...register("phoneCountry")}>
                 {PHONE_COUNTRIES.map(([code, callingCode, label]) => <option key={code} value={code}>{callingCode} {label}</option>)}
-              </select>
+              </Select>
               <Input placeholder="6 55 00 00 00" {...register("phone", { validate: (value, values) => phoneValidation(values.phoneCountry)(value) })} />
             </div>
           </Field>

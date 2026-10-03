@@ -23,7 +23,7 @@ export default function Register() {
     setSubmitting(true);
     try {
       await registerUser({...data, name: normalizeName(data.name), email: normalizeEmail(data.email)});
-      toast.success("Account created — welcome to INFONOVA CRM! 🎉");
+      toast.success("Account created — welcome to INFONOVA CRM!");
       navigate("/", { replace: true });
     } catch (err) {
       toast.error(err.message || "Registration failed");

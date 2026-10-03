@@ -13,6 +13,7 @@ export const LEAD_SOURCES = [
   "Cold Outreach",
   "Social",
   "Event",
+  "Public Form",
   "Other",
 ];
 
